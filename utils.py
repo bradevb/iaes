@@ -9,7 +9,6 @@ def load_image(img_or_path, flags=None):
     :param flags: cv2 flags you would like the image to be loaded with.
     :return: A loaded image from cv2.
     """
-
     if type(img_or_path) is np.ndarray:
         return img_or_path
     img = cv.imread(img_or_path, flags)
