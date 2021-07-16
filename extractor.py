@@ -22,4 +22,24 @@ class FormExtractor:
         return self._extract_forms()
 
     def _extract_forms(self):
-        pass
+        gray = cv.cvtColor(self._processed, cv.COLOR_BGR2GRAY)
+        gray = cv.GaussianBlur(gray, (5, 5), 0)
+
+        # Apply thresholding with a threshold of 230
+        ret, th = cv.threshold(gray, 230, 235, 1)
+
+        # Find and sort contours
+        contours, hierarchy = cv.findContours(th.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv.contourArea, reverse=True)
+
+        boxes = []
+
+        for c in contours:
+            box = cv.minAreaRect(c)
+            box = cv.cv.BoxPoints(box) if imutils.is_cv2() else cv.boxPoints(box)
+            box = np.array(box, dtype="int")
+            area = self._processed.shape[0] * self._processed.shape[1]
+            if area / 10 < cv.contourArea(box) < area * 2 / 3:
+                boxes.append(box)
+
+        return boxes
