@@ -24,7 +24,7 @@ class FormExtractor:
 
     def _extract_forms(self):
         # Find and sort contours
-        contours, hierarchy = cv.findContours(th.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(self._processed.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
 
         boxes = []
