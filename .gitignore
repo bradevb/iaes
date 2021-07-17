@@ -1,3 +1,6 @@
+### Directory stuff
+tests/images
+
 ### JetBrains
 .idea
 *.iml
