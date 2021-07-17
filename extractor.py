@@ -23,12 +23,6 @@ class FormExtractor:
         return self._extract_forms()
 
     def _extract_forms(self):
-        gray = cv.cvtColor(self._processed, cv.COLOR_BGR2GRAY)
-        gray = cv.GaussianBlur(gray, (5, 5), 0)
-
-        # Apply thresholding with a threshold of 230
-        ret, th = cv.threshold(gray, 230, 235, 1)
-
         # Find and sort contours
         contours, hierarchy = cv.findContours(th.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
