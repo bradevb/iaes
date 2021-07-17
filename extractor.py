@@ -2,7 +2,7 @@ import cv2 as cv
 import imutils
 import numpy as np
 
-from utils import load_image
+from utils import load_image, show_result
 
 
 class FormExtractor:
@@ -36,5 +36,10 @@ class FormExtractor:
             area = self._processed.shape[0] * self._processed.shape[1]
             if area / 10 < cv.contourArea(box) < area * 2 / 3:
                 boxes.append(box)
+
+                if self.output_process:
+                    result = self._image.copy()
+                    cv.drawContours(result, [box], -1, (0, 255, 0), 2)
+                    show_result(result)
 
         return boxes
