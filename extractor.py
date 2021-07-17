@@ -26,24 +26,11 @@ class Extractor:
         pass
 
 
-class FormExtractor:
+class FormExtractor(Extractor):
     def __init__(self, preprocessors, output_process=False):
-        assert isinstance(preprocessors, list), "List of processors expected"
-        self._preprocessors = preprocessors
-        self.output_process = output_process
+        super().__init__(preprocessors, output_process)
 
-    def __call__(self, img_or_path):
-        # Load image
-        self._image = load_image(img_or_path)
-
-        # Apply all preprocessors to the image
-        self._processed = self._image
-        for preprocessor in self._preprocessors:
-            self._processed = preprocessor(self._processed)
-
-        return self._extract_forms()
-
-    def _extract_forms(self):
+    def _extract(self):
         # Find and sort contours
         contours, hierarchy = cv.findContours(self._processed.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
