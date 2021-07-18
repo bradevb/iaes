@@ -6,6 +6,11 @@ from utils import load_image, show_result
 
 
 class Extractor:
+    """
+    Base Extractor class. Takes a list of preprocessors to run before running _extract, which is meant to be
+    overwritten. It it meant to be called after being initialized.
+    """
+
     def __init__(self, preprocessors, output_process=False):
         assert isinstance(preprocessors, list), "List of processors expected"
         self._preprocessors = preprocessors
