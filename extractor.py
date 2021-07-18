@@ -32,6 +32,14 @@ class Extractor:
 
 
 class FormExtractor(Extractor):
+    """
+    Class for separating the different forms and windows of Captiva.
+    Recommended preprocessing steps are:
+    1. cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    2. cv.GaussianBlur(image, (5, 5), 0)
+    3. cv.threshold(image, 230, 235, cv.THRESH_BINARY_INV)
+    """
+
     def __init__(self, preprocessors, output_process=False):
         super().__init__(preprocessors, output_process)
 
