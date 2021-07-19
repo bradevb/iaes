@@ -32,3 +32,10 @@ def show_result(img, topmost=False, timeout=0):
     cv.imshow(window_name, img)
     cv.waitKey(timeout)
     cv.destroyWindow(window_name)
+
+
+def generate_kernels(width, dtype=np.uint8):
+    kernel = np.ones((width, width), dtype)
+    kernel_h = np.ones((1, width), np.uint8)
+    kernel_v = np.ones((width, 1), np.uint8)
+    return kernel, kernel_h, kernel_v
