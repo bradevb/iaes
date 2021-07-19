@@ -11,15 +11,13 @@ class Extractor:
     overwritten. It it meant to be called after being initialized.
     """
 
-    def __init__(self, preprocessors, output_process=False):
+    def __init__(self, img_or_path, preprocessors, output_process=False):
         assert isinstance(preprocessors, list), "List of processors expected"
+        self._image = image_utils.load_image(img_or_path)
         self._preprocessors = preprocessors
         self.output_process = output_process
 
     def __call__(self, img_or_path):
-        # Load image
-        self._image = image_utils.load_image(img_or_path)
-
         # Apply all preprocessors to the image
         self._processed = self._image
         for preprocessor in self._preprocessors:
@@ -40,8 +38,8 @@ class FormExtractor(Extractor):
     3. cv.threshold(image, 230, 235, cv.THRESH_BINARY_INV)
     """
 
-    def __init__(self, preprocessors, output_process=False):
-        super().__init__(preprocessors, output_process)
+    def __init__(self, img_or_path, preprocessors, output_process=False):
+        super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
         # Find and sort contours
@@ -75,8 +73,8 @@ class CellExtractor(Extractor):
     2. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
     """
 
-    def __init__(self, preprocessors, line_width=1, line_min_width=20, output_process=False):
-        super().__init__(preprocessors, output_process)
+    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, output_process=False):
+        super().__init__(img_or_path, preprocessors, output_process)
         self.line_width = line_width
         self.line_min_width = line_min_width
 
