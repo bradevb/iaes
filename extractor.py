@@ -111,7 +111,7 @@ class CellExtractor(Extractor):
             debug_image = self._image.copy()
             for x, y, w, h, area in stats[2:]:
                 cv.rectangle(debug_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            show_result(debug_image)
+            image_utils.show_result(debug_image)
 
         return cells
 
