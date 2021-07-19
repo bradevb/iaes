@@ -82,18 +82,18 @@ class CellExtractor(Extractor):
 
     def _extract(self):
         kernel1 = np.ones((self.line_width, self.line_width), np.uint8)
-        kernel1h = np.ones((1, self.line_width), np.uint8)
-        kernel1v = np.ones((self.line_width, 1), np.uint8)
+        kernel1_h = np.ones((1, self.line_width), np.uint8)
+        kernel1_v = np.ones((self.line_width, 1), np.uint8)
         kernel6 = np.ones((self.line_min_width, self.line_min_width), np.uint8)
-        kernel6h = np.ones((1, self.line_min_width), np.uint8)
-        kernel6v = np.ones((self.line_min_width, 1), np.uint8)
+        kernel6_h = np.ones((1, self.line_min_width), np.uint8)
+        kernel6_v = np.ones((self.line_min_width, 1), np.uint8)
 
         # Bridge small gap in horizontal lines, erode everything else in horizontal direction
-        img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1h)
-        img_bin_h = cv.morphologyEx(img_bin_h, cv.MORPH_OPEN, kernel6h)
+        img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_h)
+        img_bin_h = cv.morphologyEx(img_bin_h, cv.MORPH_OPEN, kernel6_h)
         # Bridge small gap in vert lines, erode everything else in vertical direction
-        img_bin_v = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1v)
-        img_bin_v = cv.morphologyEx(img_bin_v, cv.MORPH_OPEN, kernel6v)
+        img_bin_v = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_v)
+        img_bin_v = cv.morphologyEx(img_bin_v, cv.MORPH_OPEN, kernel6_v)
         img_bin_final = self._fix_as_binary(self._fix_as_binary(img_bin_h) | self._fix_as_binary(img_bin_v))
         # Dilate the final binary image a little bit to ensure all cells are connected
         final_kernel = np.ones((5, 5), np.uint8)
