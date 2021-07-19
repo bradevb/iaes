@@ -39,3 +39,9 @@ def generate_kernels(width, dtype=np.uint8):
     kernel_h = np.ones((1, width), np.uint8)
     kernel_v = np.ones((width, 1), np.uint8)
     return kernel, kernel_h, kernel_v
+
+
+def fix_as_binary(img, thresh=127):
+    img[img > thresh] = 255
+    img[img < thresh] = 0
+    return img

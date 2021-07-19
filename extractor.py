@@ -90,7 +90,11 @@ class CellExtractor(Extractor):
         # Bridge small gap in vert lines, erode everything else in vertical direction
         img_bin_v = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_v)
         img_bin_v = cv.morphologyEx(img_bin_v, cv.MORPH_OPEN, kernel6_v)
-        img_bin_final = self._fix_as_binary(self._fix_as_binary(img_bin_h) | self._fix_as_binary(img_bin_v))
+
+        # Combine img_bins with bitwise or, and turn the result into a binary image
+        img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(img_bin_h) |
+                                                  image_utils.fix_as_binary(img_bin_v))
+
         # Dilate the final binary image a little bit to ensure all cells are connected
         final_kernel = np.ones((5, 5), np.uint8)
         img_bin_final = cv.dilate(img_bin_final, final_kernel, iterations=1)
@@ -110,9 +114,3 @@ class CellExtractor(Extractor):
             image_utils.show_result(debug_image)
 
         return cells
-
-    @staticmethod
-    def _fix_as_binary(img):
-        img[img > 127] = 255
-        img[img < 127] = 0
-        return img
