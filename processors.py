@@ -1,6 +1,6 @@
 import cv2 as cv
 
-from utils import show_result
+from image_utils import show_result
 
 
 def convert_gray(image, output_process=False):

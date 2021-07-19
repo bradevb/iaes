@@ -2,7 +2,7 @@ import cv2 as cv
 import imutils
 import numpy as np
 
-from utils import load_image, show_result
+from image_utils import load_image, show_result
 
 
 class Extractor:
