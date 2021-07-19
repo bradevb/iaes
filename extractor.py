@@ -87,7 +87,7 @@ class CellExtractor(Extractor):
         # Bridge small gap in horizontal lines, erode everything else in horizontal direction
         img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_h)
         img_bin_h = cv.morphologyEx(img_bin_h, cv.MORPH_OPEN, kernel6_h)
-        # Bridge small gap in vert lines, erode everything else in vertical direction
+        # Do the above, but with vertical lines
         img_bin_v = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_v)
         img_bin_v = cv.morphologyEx(img_bin_v, cv.MORPH_OPEN, kernel6_v)
 
