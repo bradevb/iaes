@@ -81,12 +81,8 @@ class CellExtractor(Extractor):
         self.line_min_width = line_min_width
 
     def _extract(self):
-        kernel1 = np.ones((self.line_width, self.line_width), np.uint8)
-        kernel1_h = np.ones((1, self.line_width), np.uint8)
-        kernel1_v = np.ones((self.line_width, 1), np.uint8)
-        kernel6 = np.ones((self.line_min_width, self.line_min_width), np.uint8)
-        kernel6_h = np.ones((1, self.line_min_width), np.uint8)
-        kernel6_v = np.ones((self.line_min_width, 1), np.uint8)
+        _, kernel1_h, kernel1_v = image_utils.generate_kernels(self.line_width)
+        _, kernel6_h, kernel6_v = image_utils.generate_kernels(self.line_min_width)
 
         # Bridge small gap in horizontal lines, erode everything else in horizontal direction
         img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_h)
