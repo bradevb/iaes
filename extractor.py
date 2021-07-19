@@ -2,7 +2,7 @@ import cv2 as cv
 import imutils
 import numpy as np
 
-from image_utils import load_image, show_result
+import image_utils
 
 
 class Extractor:
@@ -18,7 +18,7 @@ class Extractor:
 
     def __call__(self, img_or_path):
         # Load image
-        self._image = load_image(img_or_path)
+        self._image = image_utils.load_image(img_or_path)
 
         # Apply all preprocessors to the image
         self._processed = self._image
@@ -61,6 +61,6 @@ class FormExtractor(Extractor):
                 if self.output_process:
                     result = self._image.copy()
                     cv.drawContours(result, [box], -1, (0, 255, 0), 2)
-                    show_result(result)
+                    image_utils.show_result(result)
 
         return boxes
