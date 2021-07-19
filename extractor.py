@@ -48,7 +48,7 @@ class FormExtractor(Extractor):
         contours, hierarchy = cv.findContours(self._processed.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
 
-        boxes = []
+        forms = []
 
         for c in contours:
             box = cv.minAreaRect(c)
@@ -56,11 +56,12 @@ class FormExtractor(Extractor):
             box = np.array(box, dtype="int")
             area = self._processed.shape[0] * self._processed.shape[1]
             if area / 10 < cv.contourArea(box) < area * 2 / 3:
-                boxes.append(box)
+                form = self._image.copy()
+                x, y, w, h = cv.boundingRect(box)
+                form = form[y:y + h, x:x + w]
+                forms.append(form)
 
                 if self.output_process:
-                    result = self._image.copy()
-                    cv.drawContours(result, [box], -1, (0, 255, 0), 2)
-                    image_utils.show_result(result)
+                    image_utils.show_result(form)
 
-        return boxes
+        return forms
