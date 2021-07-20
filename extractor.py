@@ -16,15 +16,16 @@ class Extractor:
         self._image = image_utils.load_image(img_or_path)
         self._preprocessors = preprocessors
         self.output_process = output_process
-        self._apply_preprocessors()
+        self._processed = self._apply_preprocessors()
 
     def extract(self):
         pass
 
     def _apply_preprocessors(self):
-        self._processed = self._image
+        processed = self._image
         for preprocessor in self._preprocessors:
-            self._processed = preprocessor(self._processed)
+            processed = preprocessor(processed)
+        return processed
 
 
 class FormExtractor(Extractor):
