@@ -16,6 +16,7 @@ class Extractor:
         self._image = image_utils.load_image(img_or_path)
         self._preprocessors = preprocessors
         self.output_process = output_process
+        self._apply_preprocessors()
 
     def __call__(self, img_or_path):
         # Apply all preprocessors to the image
@@ -24,6 +25,11 @@ class Extractor:
             self._processed = preprocessor(self._processed)
 
         return self._extract()
+
+    def _apply_preprocessors(self):
+        self._processed = self._image
+        for preprocessor in self._preprocessors:
+            self._processed = preprocessor(self._processed)
 
     def _extract(self):
         pass
