@@ -17,6 +17,7 @@ class Extractor:
         self._preprocessors = preprocessors
         self.output_process = output_process
         self._processed = self._apply_preprocessors()
+        self._extract()
 
     def _extract(self):
         pass
