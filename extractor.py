@@ -39,7 +39,6 @@ class FormExtractor(Extractor):
     """
 
     def __init__(self, img_or_path, preprocessors, output_process=False):
-        self._form_images = None
         self._form_coords = None
         super().__init__(img_or_path, preprocessors, output_process)
 
@@ -61,13 +60,21 @@ class FormExtractor(Extractor):
                 x, y, w, h = cv.boundingRect(box)
                 form = form[y:y + h, x:x + w]
                 form_images.append(form)
-                form_coords.append(box)
+                form_coords.append((x, y, w, h))
 
                 if self.output_process:
                     image_utils.show_result(form)
 
-        self._form_images = form_images
         self._form_coords = form_coords
+
+    def get_images(self):
+        form_images = []
+        for x, y, w, h in self._form_coords:
+            form_images.append(self._image[y:y + h, x:x + w])
+        return form_images
+
+    def get_coords(self):
+        return self._form_coords
 
 
 class CellExtractor(Extractor):
@@ -83,7 +90,6 @@ class CellExtractor(Extractor):
         self.line_width = line_width
         self.line_min_width = line_min_width
         self._cell_coords = None
-        self._cell_images = None
         super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
@@ -110,17 +116,26 @@ class CellExtractor(Extractor):
         cell_images = []
         cell_coords = []
 
+        debug_image = self._image.copy()
+
         for x, y, w, h, area in stats[2:]:
             if area > 100:
                 cell = self._image[y:y + h, x:x + w]
                 cell_images.append(cell)
-                cell_coords.append((x, y, w, h, area))
+                cell_coords.append((x, y, w, h))
+                cv.rectangle(debug_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
         if self.output_process:
-            debug_image = self._image.copy()
-            for x, y, w, h, area in stats[2:]:
-                cv.rectangle(debug_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
             image_utils.show_result(debug_image)
 
-        self._cell_images = cell_images
         self._cell_coords = cell_coords
+
+    # SPLIT THIS UP INTO A PRIVATE METHOD SO THAT I CAN GET CELL IMAGES WITHIN HERE
+    def get_images(self):
+        cell_images = []
+        for x, y, w, h in self._cell_coords:
+            cell_images.append(self._image[y:y + h, x:x + w])
+        return cell_images
+
+    def get_coords(self):
+        return self._cell_coords
