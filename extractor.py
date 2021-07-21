@@ -67,11 +67,14 @@ class FormExtractor(Extractor):
 
         self._form_coords = form_coords
 
-    def get_images(self):
+    def _generate_form_images(self):
         form_images = []
         for x, y, w, h in self._form_coords:
             form_images.append(self._image[y:y + h, x:x + w])
         return form_images
+
+    def get_images(self):
+        return self._generate_form_images()
 
     def get_coords(self):
         return self._form_coords
@@ -130,12 +133,15 @@ class CellExtractor(Extractor):
 
         self._cell_coords = cell_coords
 
-    # SPLIT THIS UP INTO A PRIVATE METHOD SO THAT I CAN GET CELL IMAGES WITHIN HERE
-    def get_images(self):
+    def _generate_cell_images(self):
         cell_images = []
         for x, y, w, h in self._cell_coords:
             cell_images.append(self._image[y:y + h, x:x + w])
         return cell_images
+
+    # SPLIT THIS UP INTO A PRIVATE METHOD SO THAT I CAN GET CELL IMAGES WITHIN HERE
+    def get_images(self):
+        return self._generate_cell_images()
 
     def get_coords(self):
         return self._cell_coords
