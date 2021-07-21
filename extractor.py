@@ -68,8 +68,9 @@ class CellExtractor(Extractor):
     """
     Class for extracting cells from a table.
     Recommended preprocessing steps for Captiva's IAES form:
-    1. cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    2. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
+    1. image_utils.replace_color(image, (12, 208, 216), (92, 255, 255), (255, 255, 255))
+    2. cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    3. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
     """
 
     def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, output_process=False):
