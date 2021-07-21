@@ -18,7 +18,7 @@ class Extractor:
         self.output_process = output_process
         self._processed = self._apply_preprocessors()
 
-    def extract(self):
+    def _extract(self):
         pass
 
     def _apply_preprocessors(self):
@@ -40,7 +40,7 @@ class FormExtractor(Extractor):
     def __init__(self, img_or_path, preprocessors, output_process=False):
         super().__init__(img_or_path, preprocessors, output_process)
 
-    def extract(self):
+    def _extract(self):
         # Find and sort contours
         contours, hierarchy = cv.findContours(self._processed.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
@@ -77,7 +77,7 @@ class CellExtractor(Extractor):
         self.line_width = line_width
         self.line_min_width = line_min_width
 
-    def extract(self):
+    def _extract(self):
         _, kernel1_h, kernel1_v = image_utils.generate_kernels(self.line_width)
         _, kernel6_h, kernel6_v = image_utils.generate_kernels(self.line_min_width)
 
