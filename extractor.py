@@ -39,6 +39,8 @@ class FormExtractor(Extractor):
     """
 
     def __init__(self, img_or_path, preprocessors, output_process=False):
+        self._form_images = None
+        self._form_coords = None
         super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
@@ -46,7 +48,8 @@ class FormExtractor(Extractor):
         contours, hierarchy = cv.findContours(self._processed.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv.contourArea, reverse=True)
 
-        forms = []
+        form_images = []
+        form_coords = []
 
         for c in contours:
             box = cv.minAreaRect(c)
@@ -57,12 +60,14 @@ class FormExtractor(Extractor):
                 form = self._image.copy()
                 x, y, w, h = cv.boundingRect(box)
                 form = form[y:y + h, x:x + w]
-                forms.append(form)
+                form_images.append(form)
+                form_coords.append(box)
 
                 if self.output_process:
                     image_utils.show_result(form)
 
-        return forms
+        self._form_images = form_images
+        self._form_coords = form_coords
 
 
 class CellExtractor(Extractor):
@@ -75,9 +80,9 @@ class CellExtractor(Extractor):
     """
 
     def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, output_process=False):
-        super().__init__(img_or_path, preprocessors, output_process)
         self.line_width = line_width
         self.line_min_width = line_min_width
+        super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
         _, kernel1_h, kernel1_v = image_utils.generate_kernels(self.line_width)
