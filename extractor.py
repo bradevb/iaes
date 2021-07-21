@@ -82,6 +82,8 @@ class CellExtractor(Extractor):
     def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, output_process=False):
         self.line_width = line_width
         self.line_min_width = line_min_width
+        self._cell_coords = None
+        self._cell_images = None
         super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
@@ -105,11 +107,14 @@ class CellExtractor(Extractor):
 
         ret, labels, stats, centroids = cv.connectedComponentsWithStats(~img_bin_final, connectivity=8, ltype=cv.CV_32S)
 
-        cells = []
+        cell_images = []
+        cell_coords = []
+
         for x, y, w, h, area in stats[2:]:
             if area > 100:
                 cell = self._image[y:y + h, x:x + w]
-                cells.append(cell)
+                cell_images.append(cell)
+                cell_coords.append((x, y, w, h, area))
 
         if self.output_process:
             debug_image = self._image.copy()
@@ -117,4 +122,5 @@ class CellExtractor(Extractor):
                 cv.rectangle(debug_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
             image_utils.show_result(debug_image)
 
-        return cells
+        self._cell_images = cell_images
+        self._cell_coords = cell_coords
