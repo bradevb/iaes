@@ -133,6 +133,22 @@ class CellExtractor(Extractor):
 
         self._cell_coords = cell_coords
 
+    def group_cells(self):
+        clusters = []
+        checked_rects = []
+        list_of_rects = self._cell_coords.copy()  # Might not need to copy this. See when the algo is done
+        index = 0
+
+        while len(checked_rects) != len(list_of_rects):
+            rect = list_of_rects[index]
+
+            for x, y, w, h in list_of_rects:
+                checked_rects.append((x, y, w, h))
+                index += 1
+
+        print('done')
+        return
+
     def _generate_cell_images(self):
         cell_images = []
         for x, y, w, h in self._cell_coords:
