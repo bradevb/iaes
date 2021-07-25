@@ -140,8 +140,21 @@ class CellExtractor(Extractor):
             debug_image = self._image.copy()
             cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
             cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
+
+            text_offset = 10
+            # Draw label rects
+            (iw, ih), _ = cv.getTextSize(f"i: {i}", cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            (indexw, indexh), _ = cv.getTextSize(f"indx: {index}", cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv.rectangle(debug_image, (x, y - ih - text_offset), (x + iw, y - text_offset), (255, 0, 255), -1)
+            cv.rectangle(debug_image, (rx, ry - indexh - text_offset), (rx + indexw, ry - text_offset), (255, 0, 0), -1)
+            # Write text
+            cv.putText(debug_image, f"i: {i}", (x, y - text_offset), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv.putText(debug_image, f"indx: {index}", (rx, ry - text_offset), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255,
+                                                                                                             255), 1)
+
             image_utils.show_result(debug_image, timeout=1)
             del debug_image
+
         from tests.close_rects import FILE_1PNG_IAES_TABLE
         distance_x = 70
         distance_y = 45
