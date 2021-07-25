@@ -136,6 +136,12 @@ class CellExtractor(Extractor):
         self._cell_coords = cell_coords
 
     def group_cells(self):
+        def _show_debug_img():
+            debug_image = self._image.copy()
+            cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
+            cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
+            image_utils.show_result(debug_image, timeout=1)
+            del debug_image
         from tests.close_rects import FILE_1PNG_IAES_TABLE
         distance_x = 70
         distance_y = 45
@@ -167,10 +173,11 @@ class CellExtractor(Extractor):
                 if i == index or i in checked_rects:
                     continue
                 x, y, w, h = neighbor
-                debug_image = self._image.copy()
-                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
-                cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
-                image_utils.show_result(debug_image, timeout=1)
+                _show_debug_img()
+                # debug_image = self._image.copy()
+                # cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
+                # cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
+                # image_utils.show_result(debug_image, timeout=1)
 
                 # left_right_check = abs(x - rx) <= distance_x or abs((x + w) - (rx + rw)) <= distance_x
                 # top_bottom_check = abs(y - ry) <= distance_y or abs((y + h) - (ry + rh)) <= distance_y
