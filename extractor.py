@@ -1,3 +1,5 @@
+import crypt
+
 import cv2 as cv
 import imutils
 import numpy as np
@@ -170,23 +172,18 @@ class CellExtractor(Extractor):
                 cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
                 image_utils.show_result(debug_image, timeout=1)
 
-                nl, nr = x, x + w
-                nt, nb = y, y + h
-                rl, rr = rx, rx + rw
-                rt, rb = ry, ry + rh
+                # left_right_check = abs(x - rx) <= distance_x or abs((x + w) - (rx + rw)) <= distance_x
+                # top_bottom_check = abs(y - ry) <= distance_y or abs((y + h) - (ry + rh)) <= distance_y
+                # proximity_check = left_right_check and top_bottom_check
 
+                # Neighbor is on left or right
+                left_check = abs(x - rx) <= distance_x or abs(rx - (x + w)) <= distance_x
+                right_check = abs((x + w) - (rx + rw)) <= distance_y or abs(x - (rx + rw)) <= distance_x
+                # Neighbor is on top or bottom
+                top_check = abs(y - ry) <= distance_y or abs(ry - (y + h)) <= distance_y
+                bottom_check = abs((y + h) - (ry + rh)) <= distance_y or abs(y - (ry + rh)) <= distance_y
 
-                # Perhaps add more checks. abs((rx + rw) - x) should be one of them. Find the rest on toolbar buttons
-                neighbor_on_right = abs(nl - rr) <= distance_x
-                neighbor_on_left = abs(nr - rl) <= distance_x
-                neighbor_on_top = abs(nb - rt) <= distance_y
-                neighbor_on_bottom = abs(nt - rb) <= distance_y
-
-                are_neighbors = ((neighbor_on_left or neighbor_on_right)
-                                 and (neighbor_on_top or neighbor_on_bottom))
-
-                left_check = abs(x - rx) <= distance_x and abs(y - ry) <= distance_y
-                right_check = abs((x + w) - (rx + rw)) <= distance_x and abs((y + rh) - (ry + rh)) <= distance_y
+                proximity_check = (left_check or right_check) and (top_check or bottom_check)
 
                 # if left_check or right_check:
                 #     clusters[-1].extend((rect, neighbor))  # APPEND NEIGHBOR AND RECT!!!
