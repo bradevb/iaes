@@ -144,12 +144,14 @@ class CellExtractor(Extractor):
         x, y = int(730 / 2), 50
         list_of_rects.insert(0, (x, y, 10, 10))
 
-        # list_of_rects = FILE_1PNG_IAES_TABLE
+        list_of_rects = FILE_1PNG_IAES_TABLE
         # list_of_rects.insert(2, (561, 35, 169, 292))
 
         index = 0
 
         while len(checked_rects) < len(list_of_rects):
+            should_break = True
+
             rect = list_of_rects[index]
             rx, ry, rw, rh = rect
 
@@ -164,25 +166,45 @@ class CellExtractor(Extractor):
                     continue
                 x, y, w, h = neighbor
                 debug_image = self._image.copy()
-                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 255), 2)
+                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
+                cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
                 image_utils.show_result(debug_image, timeout=1)
+
+                nl, nr = x, x + w
+                nt, nb = y, y + h
+                rl, rr = rx, rx + rw
+                rt, rb = ry, ry + rh
+
+
                 # Perhaps add more checks. abs((rx + rw) - x) should be one of them. Find the rest on toolbar buttons
+                neighbor_on_right = abs(nl - rr) <= distance_x
+                neighbor_on_left = abs(nr - rl) <= distance_x
+                neighbor_on_top = abs(nb - rt) <= distance_y
+                neighbor_on_bottom = abs(nt - rb) <= distance_y
+
+                are_neighbors = ((neighbor_on_left or neighbor_on_right)
+                                 and (neighbor_on_top or neighbor_on_bottom))
+
                 left_check = abs(x - rx) <= distance_x and abs(y - ry) <= distance_y
                 right_check = abs((x + w) - (rx + rw)) <= distance_x and abs((y + rh) - (ry + rh)) <= distance_y
 
-                if left_check or right_check:
-                    print(f'These ones are neighbors: {rect}, {neighbor}\n'
-                          f'Neighbor was on the: {"LEFT" if left_check else "RIGHT"}')
-                    clusters[-1].append(neighbor)  # APPEND NEIGHBOR AND RECT!!!
-                    checked_rects.append(i)  # APPEND I AND INDEX!!!
-                    break
+                # if left_check or right_check:
+                #     clusters[-1].extend((rect, neighbor))  # APPEND NEIGHBOR AND RECT!!!
+                #     # checked_rects.append(i)  # APPEND I AND INDEX!!!
+                #     checked_rects.extend((i, index))  # APPEND I AND INDEX!!!
+                #     break
 
                 # No neighbors found, put in its own cluster
                 if i == len(list_of_rects) - 1:
-                    print('No neighbors found. Putting in its own cluster.')
-                    clusters.append([rect])  # HERE, you need to do clusters.append([rect] if not clusters[-1])
-                    clusters.append([])
+                    # If no rects are in last cluster, pop off empty cluster
+                    if not clusters[-1]:
+                        clusters.pop()
+
+                    # Then append rect in a list, then after that append new empty list
+                    # FIX THIS FOR WHEN RECTS ARE OUT OF ORDER SO THAT IT DOESN'T ADD A NEW LIST
+                    clusters.insert(0, [rect])
+                    # clusters.extend(([rect], []))
+                    # clusters.append([])
                     checked_rects.append(index)
 
             index += 1
