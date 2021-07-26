@@ -1,5 +1,3 @@
-import crypt
-
 import cv2 as cv
 import imutils
 import numpy as np
@@ -80,6 +78,20 @@ class FormExtractor(Extractor):
 
     def get_coords(self):
         return self._form_coords
+
+
+def _check_rect_proximity(rect1, rect2, thresh_x, thresh_y):
+    x1, y1, w1, h1 = rect1
+    x2, y2, w2, h2 = rect2
+
+    # Neighbor is on left or right
+    left_check = abs(x1 - x2) <= thresh_x or abs(x2 - (x1 + w1)) <= thresh_x
+    right_check = abs((x1 + w1) - (x2 + w2)) <= thresh_x or abs(x1 - (x2 + w2)) <= thresh_x
+    # Neighbor is on top or bottom
+    top_check = abs(y1 - y2) <= thresh_y or abs(y2 - (y1 + h1)) <= thresh_y
+    bottom_check = abs((y1 + h1) - (y2 + h2)) <= thresh_y or abs(y1 - (y2 + h2)) <= thresh_y
+
+    return (left_check or right_check) and (top_check or bottom_check)
 
 
 class CellExtractor(Extractor):
@@ -187,14 +199,7 @@ class CellExtractor(Extractor):
                     continue
                 x, y, w, h = neighbor
 
-                # Neighbor is on left or right
-                left_check = abs(x - rx) <= distance_x or abs(rx - (x + w)) <= distance_x
-                right_check = abs((x + w) - (rx + rw)) <= distance_y or abs(x - (rx + rw)) <= distance_x
-                # Neighbor is on top or bottom
-                top_check = abs(y - ry) <= distance_y or abs(ry - (y + h)) <= distance_y
-                bottom_check = abs((y + h) - (ry + rh)) <= distance_y or abs(y - (ry + rh)) <= distance_y
-
-                proximity_check = (left_check or right_check) and (top_check or bottom_check)
+                proximity_check = _check_rect_proximity(rect, neighbor, distance_x, distance_y)
 
                 if proximity_check:
                     _show_debug_img()
