@@ -182,21 +182,10 @@ class CellExtractor(Extractor):
                 index += 1
                 continue
 
-            # Maybe make this for loop enumerated, and then add the index to checked_rects. Then, in the if statement
-            # above, check for index in checked_rects instead. That way, it'll be able to handle duplicate rects.
             for i, neighbor in enumerate(list_of_rects):
                 if i == index or i in checked_rects:
                     continue
                 x, y, w, h = neighbor
-                # _show_debug_img()
-                # debug_image = self._image.copy()
-                # cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
-                # cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
-                # image_utils.show_result(debug_image, timeout=1)
-
-                # left_right_check = abs(x - rx) <= distance_x or abs((x + w) - (rx + rw)) <= distance_x
-                # top_bottom_check = abs(y - ry) <= distance_y or abs((y + h) - (ry + rh)) <= distance_y
-                # proximity_check = left_right_check and top_bottom_check
 
                 # Neighbor is on left or right
                 left_check = abs(x - rx) <= distance_x or abs(rx - (x + w)) <= distance_x
@@ -215,12 +204,6 @@ class CellExtractor(Extractor):
                     index = i
                     break
 
-                # if left_check or right_check:
-                #     clusters[-1].extend((rect, neighbor))  # APPEND NEIGHBOR AND RECT!!!
-                #     # checked_rects.append(i)  # APPEND I AND INDEX!!!
-                #     checked_rects.extend((i, index))  # APPEND I AND INDEX!!!
-                #     break
-
                 # No neighbors found, put in its own cluster
                 if i == len(list_of_rects) - 1:
                     # If no rects are in last cluster, pop off empty cluster
@@ -229,13 +212,7 @@ class CellExtractor(Extractor):
                     else:
                         clusters[-1].append(rect)
 
-                    # Then append rect in a list, then after that append new empty list
-                    # FIX THIS FOR WHEN RECTS ARE OUT OF ORDER SO THAT IT DOESN'T ADD A NEW LIST
-                    # clusters.append([rect])
                     clusters.append([])
-                    # clusters.insert(0, [rect])
-                    # clusters.extend(([rect], []))
-                    # clusters.append([])
                     checked_rects.append(index)
                     neighbors = 0
                     index += 1
