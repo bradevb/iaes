@@ -165,13 +165,15 @@ class CellExtractor(Extractor):
         x, y = int(730 / 2), 50
         list_of_rects.insert(0, (x, y, 10, 10))
 
-        list_of_rects = FILE_1PNG_IAES_TABLE
+        list_of_rects = sorted(list_of_rects)
+
+        # list_of_rects = FILE_1PNG_IAES_TABLE
         # list_of_rects.insert(2, (561, 35, 169, 292))
 
         index = 0
+        neighbors = 0
 
         while len(checked_rects) < len(list_of_rects):
-            should_break = True
 
             rect = list_of_rects[index]
             rx, ry, rw, rh = rect
@@ -186,7 +188,7 @@ class CellExtractor(Extractor):
                 if i == index or i in checked_rects:
                     continue
                 x, y, w, h = neighbor
-                _show_debug_img()
+                # _show_debug_img()
                 # debug_image = self._image.copy()
                 # cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
                 # cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
@@ -205,6 +207,14 @@ class CellExtractor(Extractor):
 
                 proximity_check = (left_check or right_check) and (top_check or bottom_check)
 
+                if proximity_check:
+                    _show_debug_img()
+                    clusters[-1].append(rect)
+                    checked_rects.append(index)
+                    neighbors += 1
+                    index = i
+                    break
+
                 # if left_check or right_check:
                 #     clusters[-1].extend((rect, neighbor))  # APPEND NEIGHBOR AND RECT!!!
                 #     # checked_rects.append(i)  # APPEND I AND INDEX!!!
@@ -214,17 +224,23 @@ class CellExtractor(Extractor):
                 # No neighbors found, put in its own cluster
                 if i == len(list_of_rects) - 1:
                     # If no rects are in last cluster, pop off empty cluster
-                    if not clusters[-1]:
-                        clusters.pop()
+                    if neighbors == 0:
+                        clusters[-1] = [rect]
+                    else:
+                        clusters[-1].append(rect)
 
                     # Then append rect in a list, then after that append new empty list
                     # FIX THIS FOR WHEN RECTS ARE OUT OF ORDER SO THAT IT DOESN'T ADD A NEW LIST
-                    clusters.insert(0, [rect])
+                    # clusters.append([rect])
+                    clusters.append([])
+                    # clusters.insert(0, [rect])
                     # clusters.extend(([rect], []))
                     # clusters.append([])
                     checked_rects.append(index)
+                    neighbors = 0
+                    index += 1
 
-            index += 1
+            # index += 1
 
         print('done')
         return
