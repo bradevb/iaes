@@ -94,6 +94,36 @@ def _check_rect_proximity(rect1, rect2, thresh_x, thresh_y):
     return (left_check or right_check) and (top_check or bottom_check)
 
 
+def _merge_lists(ls):
+    """
+    Takes a list of lists and merges lists if they contain an identical element.
+    :param ls: A list of lists.
+    :return: A list of merged lists (or sets).
+    """
+    temp_ls = ls.copy()
+    out = []
+    while len(temp_ls) > 0:
+        first, *rest = temp_ls
+        first = set(first)
+
+        first_len = -1
+        while len(first) > first_len:
+            first_len = len(first)
+
+            rest2 = []
+            for r in rest:
+                if len(first.intersection(set(r))) > 0:
+                    first |= set(r)
+                else:
+                    rest2.append(r)
+            rest = rest2
+
+        out.append(list(first))
+        temp_ls = rest
+
+    return out
+
+
 class CellExtractor(Extractor):
     """
     Class for extracting cells from a table.
