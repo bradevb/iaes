@@ -177,85 +177,26 @@ class CellExtractor(Extractor):
 
         self._cell_coords = cell_coords
 
-    def group_cells(self):
-        def _show_debug_img():
-            debug_image = self._image.copy()
-            cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 255), 2)
-            cv.rectangle(debug_image, (rx, ry), (rx + rw, ry + rh), (255, 0, 0), 2)
+    def group_cells(self, dist_x, dist_y=None):
+        if dist_y is None:
+            dist_y = dist_x
 
-            text_offset = 10
-            # Draw label rects
-            (iw, ih), _ = cv.getTextSize(f"i: {i}", cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            (indexw, indexh), _ = cv.getTextSize(f"indx: {index}", cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv.rectangle(debug_image, (x, y - ih - text_offset), (x + iw, y - text_offset), (255, 0, 255), -1)
-            cv.rectangle(debug_image, (rx, ry - indexh - text_offset), (rx + indexw, ry - text_offset), (255, 0, 0), -1)
-            # Write text
-            cv.putText(debug_image, f"i: {i}", (x, y - text_offset), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            cv.putText(debug_image, f"indx: {index}", (rx, ry - text_offset), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255,
-                                                                                                             255), 1)
+        list_of_rects = sorted(self._cell_coords.copy())
 
-            image_utils.show_result(debug_image, timeout=1)
-            del debug_image
+        groups = []
+        for rect in list_of_rects:
+            neighbors = []
 
-        from tests.close_rects import FILE_1PNG_IAES_TABLE
-        distance_x = 70
-        distance_y = 45
-        clusters = [[]]
-        checked_rects = []
-        list_of_rects = self._cell_coords.copy()  # Might not need to copy this. See when the algo is done
+            # Compare each cell with rect to see if it's a neighbor
+            for neighbor in list_of_rects:
+                within_dist = _check_rect_proximity(rect, neighbor, dist_x, dist_y)
+                if within_dist:
+                    neighbors.append(neighbor)
 
-        x, y = int(730 / 2), 50
-        list_of_rects.insert(0, (x, y, 10, 10))
+            groups.append(neighbors)
 
-        list_of_rects = sorted(list_of_rects)
-
-        # list_of_rects = FILE_1PNG_IAES_TABLE
-        # list_of_rects.insert(2, (561, 35, 169, 292))
-
-        index = 0
-        neighbors = 0
-
-        while len(checked_rects) < len(list_of_rects):
-
-            rect = list_of_rects[index]
-            rx, ry, rw, rh = rect
-
-            if index in checked_rects:
-                index += 1
-                continue
-
-            for i, neighbor in enumerate(list_of_rects):
-                if i == index or i in checked_rects:
-                    continue
-                x, y, w, h = neighbor
-
-                proximity_check = _check_rect_proximity(rect, neighbor, distance_x, distance_y)
-
-                if proximity_check:
-                    _show_debug_img()
-                    clusters[-1].append(rect)
-                    checked_rects.append(index)
-                    neighbors += 1
-                    index = i
-                    break
-
-                # No neighbors found, put in its own cluster
-                if i == len(list_of_rects) - 1:
-                    # If no rects are in last cluster, pop off empty cluster
-                    if neighbors == 0:
-                        clusters[-1] = [rect]
-                    else:
-                        clusters[-1].append(rect)
-
-                    clusters.append([])
-                    checked_rects.append(index)
-                    neighbors = 0
-                    index += 1
-
-            # index += 1
-
-        print('done')
-        return
+        merged_groups = _merge_lists(groups)
+        return merged_groups
 
     def _generate_cell_images(self):
         cell_images = []
