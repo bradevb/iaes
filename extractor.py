@@ -133,9 +133,11 @@ class CellExtractor(Extractor):
     3. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
     """
 
-    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, output_process=False):
+    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, dilation_factor=None,
+                 output_process=False):
         self.line_width = line_width
         self.line_min_width = line_min_width
+        self.dilation_factor = dilation_factor
         self._cell_coords = None
         super().__init__(img_or_path, preprocessors, output_process)
 
@@ -154,9 +156,10 @@ class CellExtractor(Extractor):
         img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(img_bin_h) |
                                                   image_utils.fix_as_binary(img_bin_v))
 
-        # Dilate the final binary image a little bit to ensure all cells are connected
-        final_kernel = np.ones((5, 5), np.uint8)
-        img_bin_final = cv.dilate(img_bin_final, final_kernel, iterations=1)
+        if self.dilation_factor is not None:
+            # Dilate the final binary image a little bit to ensure all cells are connected
+            final_kernel = np.ones((self.dilation_factor, self.dilation_factor), np.uint8)
+            img_bin_final = cv.dilate(img_bin_final, final_kernel, iterations=1)
 
         ret, labels, stats, centroids = cv.connectedComponentsWithStats(~img_bin_final, connectivity=8, ltype=cv.CV_32S)
 
