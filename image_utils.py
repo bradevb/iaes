@@ -17,21 +17,24 @@ def load_image(img_or_path, flags=None):
     return img
 
 
-def show_result(img, topmost=False, timeout=0):
+def show_result(img, timeout=0, win_name='TEST IMAGE', ensure_destruction=False, topmost=False):
     """
     Shows an image. Primarily for debugging purposes.
     :param img: The image to show.
-    :param topmost: Pass True to make the resulting window a floating one.
     :param timeout: How long to wait before closing the window. Default is forever.
+    :param win_name: The name of the window.
+    :param ensure_destruction: Whether or not to ensure that window is destroyed before next cv.destroyWindow call.
+    :param topmost: Pass True to make the resulting window a floating one.
     :return: None
     """
-    window_name = 'TEST IMAGE'
-    cv.namedWindow(window_name, cv.WINDOW_NORMAL)
+    cv.namedWindow(win_name, cv.WINDOW_NORMAL)
     if topmost:
-        cv.setWindowProperty(window_name, cv.WND_PROP_TOPMOST, 1)
-    cv.imshow(window_name, img)
+        cv.setWindowProperty(win_name, cv.WND_PROP_TOPMOST, 1)
+    cv.imshow(win_name, img)
     cv.waitKey(timeout)
-    cv.destroyWindow(window_name)
+    cv.destroyWindow(win_name)
+    if ensure_destruction:
+        cv.waitKey(1)
 
 
 def generate_kernels(width, dtype=np.uint8):
