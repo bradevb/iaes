@@ -133,17 +133,17 @@ class CellExtractor(Extractor):
     3. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
     """
 
-    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_width=20, dilation_factor=None,
+    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_len=20, dilation_factor=None,
                  output_process=False):
         self.line_width = line_width
-        self.line_min_width = line_min_width
+        self.line_min_len = line_min_len
         self.dilation_factor = dilation_factor
         self._cell_coords = None
         super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
         _, kernel1_h, kernel1_v = image_utils.generate_kernels(self.line_width)
-        _, kernel6_h, kernel6_v = image_utils.generate_kernels(self.line_min_width)
+        _, kernel6_h, kernel6_v = image_utils.generate_kernels(self.line_min_len)
 
         # Bridge small gap in horizontal lines, erode everything else in horizontal direction
         img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_h)
@@ -173,7 +173,7 @@ class CellExtractor(Extractor):
                 cell = self._image[y:y + h, x:x + w]
                 cell_images.append(cell)
                 cell_coords.append((x, y, w, h))
-                cv.rectangle(debug_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
         if self.output_process:
             image_utils.show_result(debug_image)
