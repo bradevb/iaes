@@ -50,14 +50,17 @@ def fix_as_binary(img, thresh=127):
     return img
 
 
-def replace_color(image, low_thresh, high_thresh, replacement_color):
+def get_color_mask(image, low_thresh, high_thresh):
     hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
 
     color_lo = np.array(low_thresh)
     color_hi = np.array(high_thresh)
 
     mask = cv.inRange(hsv, color_lo, color_hi)
+    return mask
 
+
+def replace_color(image, low_thresh, high_thresh, replacement_color):
+    mask = get_color_mask(image, low_thresh, high_thresh)
     image[mask > 0] = replacement_color
-
     return image
