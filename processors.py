@@ -23,18 +23,3 @@ def thresh(image, thresh1=230, thresh2=235, thresh_type=cv.THRESH_BINARY_INV, ou
     if output_process:
         image_utils.show_result(threshold)
     return threshold
-
-
-def replace_color(image, low_thresh, high_thresh, replacement_color, output_process=False):
-    hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-
-    color_lo = np.array(low_thresh)
-    color_hi = np.array(high_thresh)
-
-    mask = cv.inRange(hsv, color_lo, color_hi)
-
-    image[mask > 0] = replacement_color
-
-    if output_process:
-        image_utils.show_result(image)
-    return image
