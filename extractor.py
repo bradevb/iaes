@@ -73,6 +73,15 @@ class FormExtractor(Extractor):
             form_images.append(self._image[y:y + h, x:x + w])
         return form_images
 
+    def sort_forms(self, key=None):
+        """
+        Sort forms by their coordinates.
+        :param key: Lambda function to pass to the sorting function.
+        :return: The sorted form coords.
+        """
+        self._form_coords.sort(key=key)
+        return self._form_coords
+
     def get_images(self):
         return self._generate_form_images()
 
