@@ -13,3 +13,12 @@ DataFrame's to_date column, and finally performs all needed validations on said 
 These modules and their members are subject to change as development continues
 and if a better method for validating is found.
 """
+
+from validators.dates import DATE_VALIDATORS
+
+v_list = [
+    DATE_VALIDATORS,
+]
+
+VALIDATORS = []
+list(map(VALIDATORS.extend, v_list))

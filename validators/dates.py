@@ -1,4 +1,4 @@
-import _date_validators as _dv
+import validators._date_validators as _dv
 
 
 def _get_date_col(dataframe, to_or_from, keep_none=True):
@@ -67,3 +67,12 @@ def ensure_same_date_cols(dataframe):
 
         if prev_to_date != prev_from_date:
             raise ValueError(f'PAYMENT TO date {prev_to_date} is not equal to PAYMENT FROM date {prev_from_date}.')
+
+
+DATE_VALIDATORS = [
+    ensure_correct_date_format,
+    ensure_total_timespan,
+    ensure_no_to_date_duplicates,
+    ensure_consecutive_dates,
+    ensure_same_date_cols,
+]
