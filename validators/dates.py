@@ -52,3 +52,12 @@ def ensure_same_date_cols(dataframe):
             return False
 
     return True
+
+
+def ensure_no_to_date_duplicates(dataframe):
+    to_date_col = _get_date_col(dataframe, 'to', False)
+
+    if len(to_date_col) != len(set(to_date_col)):
+        return False
+
+    return True
