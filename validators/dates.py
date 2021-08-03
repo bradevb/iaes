@@ -1,7 +1,18 @@
 import _date_validators
 
 
-def check_to_date_column(dates):
+def _get_date_col(dataframe, to_or_from):
+    acceptable_columns = ['to', 'from']
+    if to_or_from not in acceptable_columns:
+        raise ValueError(f'Invalid column argument "{to_or_from}", expected one of {*acceptable_columns,}')
+
+    column = f'{to_or_from}_date'
+    return list(dataframe[column])
+
+
+def check_to_date_column(dataframe):
+    dates = _get_date_col(dataframe, 'to')
+
     start = dates[0]
     end = dates[-1]
 
@@ -22,7 +33,10 @@ def check_to_date_column(dates):
     return True
 
 
-def check_from_date_column(to_date_col, from_date_col):
+def check_from_date_column(dataframe):
+    to_date_col = _get_date_col(dataframe, 'to')
+    from_date_col = _get_date_col(dataframe, 'from')
+
     prev_from_date = None
     for to_date, from_date in zip(to_date_col, from_date_col):
         if to_date is None:
