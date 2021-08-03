@@ -21,8 +21,7 @@ def ensure_total_timespan(dataframe):
     end = dates[-1]
 
     if not _dv.check_year(start, end):
-        return False
-    return True
+        raise ValueError('The first and last months are not one year apart.')
 
 
 def ensure_consecutive_dates(dataframe):
@@ -30,16 +29,14 @@ def ensure_consecutive_dates(dataframe):
 
     for current_month, next_month in zip(dates, dates[1::]):
         if not _dv.check_consecutive_dates(current_month, next_month):
-            return False
-
-    return True
+            raise ValueError(f'Months {current_month} and {next_month} are not consecutive.')
 
 
 def ensure_same_date_cols(dataframe):
     to_date_col = _get_date_col(dataframe, 'to')
     from_date_col = _get_date_col(dataframe, 'from')
 
-    prev_to_date = None
+    prev_to_date = to_date_col[-1]
     for to_date, from_date in zip(to_date_col, from_date_col):
         if to_date is not None:
             prev_to_date = to_date
@@ -49,9 +46,7 @@ def ensure_same_date_cols(dataframe):
             continue
 
         if prev_to_date != prev_from_date:
-            return False
-
-    return True
+            raise ValueError(f'PAYMENT TO date {prev_to_date} is not equal to PAYMENT FROM date {prev_from_date}.')
 
 
 def ensure_no_to_date_duplicates(dataframe):
@@ -62,3 +57,6 @@ def ensure_no_to_date_duplicates(dataframe):
         if date in checked:
             raise ValueError(f'PAYMENT TO date {date} has a duplicate.')
         checked.append(date)
+
+# TODO: add a function that loops through all dates and validates their format with _dv.check_date_format.
+# TODO: rearrange functions based on the order that they should be run
