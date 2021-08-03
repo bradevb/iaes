@@ -15,13 +15,18 @@ def _get_date_col(dataframe, to_or_from, keep_none=True):
         return [x for x in dates if x is not None]
 
 
-def ensure_consecutive_dates(dataframe):
-    dates = _get_date_col(dataframe, 'to', keep_none=False)  # Remove all Nones from the dates list
-
+def ensure_total_timespan(dataframe):
+    dates = _get_date_col(dataframe, 'to')
     start = dates[0]
     end = dates[-1]
+
     if not _dv.check_year(start, end):
         return False
+    return True
+
+
+def ensure_consecutive_dates(dataframe):
+    dates = _get_date_col(dataframe, 'to', keep_none=False)  # Remove all Nones from the dates list
 
     for current_month, next_month in zip(dates, dates[1::]):
         if not _dv.check_consecutive_dates(current_month, next_month):
