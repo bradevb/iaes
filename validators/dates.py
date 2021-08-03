@@ -37,16 +37,16 @@ def ensure_same_date_cols(dataframe):
     to_date_col = _get_date_col(dataframe, 'to')
     from_date_col = _get_date_col(dataframe, 'from')
 
-    prev_from_date = None
+    prev_to_date = None
     for to_date, from_date in zip(to_date_col, from_date_col):
-        if to_date is None:
-            if from_date != prev_from_date:
-                return False
+        if to_date is not None:
+            prev_to_date = to_date
+        if from_date is not None:
+            prev_from_date = from_date
+        else:
             continue
 
-        if to_date != from_date:
+        if prev_to_date != prev_from_date:
             return False
-
-        prev_from_date = from_date
 
     return True
