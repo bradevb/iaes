@@ -1,4 +1,4 @@
-import _date_validators
+import _date_validators as _dv
 
 
 def _get_date_col(dataframe, to_or_from):
@@ -10,13 +10,13 @@ def _get_date_col(dataframe, to_or_from):
     return list(dataframe[column])
 
 
-def check_to_date_column(dataframe):
+def ensure_consecutive_dates(dataframe):
     dates = _get_date_col(dataframe, 'to')
 
     start = dates[0]
     end = dates[-1]
 
-    if not _date_validators.check_year(start, end):
+    if not _dv.check_year(start, end):
         return False
 
     results = []
@@ -26,14 +26,14 @@ def check_to_date_column(dataframe):
         if current_month is None or next_month is None:
             continue
 
-        results.append(_date_validators.check_consecutive_dates(current_month, next_month))
+        results.append(_dv.check_consecutive_dates(current_month, next_month))
 
     if not all(results):
         return False
     return True
 
 
-def check_from_date_column(dataframe):
+def ensure_same_date_cols(dataframe):
     to_date_col = _get_date_col(dataframe, 'to')
     from_date_col = _get_date_col(dataframe, 'from')
 
