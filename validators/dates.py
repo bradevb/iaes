@@ -57,7 +57,8 @@ def ensure_same_date_cols(dataframe):
 def ensure_no_to_date_duplicates(dataframe):
     to_date_col = _get_date_col(dataframe, 'to', False)
 
-    if len(to_date_col) != len(set(to_date_col)):
-        return False
-
-    return True
+    checked = []
+    for date in to_date_col:
+        if date in checked:
+            raise ValueError(f'PAYMENT TO date {date} has a duplicate.')
+        checked.append(date)
