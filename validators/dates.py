@@ -12,24 +12,17 @@ def _get_date_col(dataframe, to_or_from):
 
 def ensure_consecutive_dates(dataframe):
     dates = _get_date_col(dataframe, 'to')
+    dates = [x for x in dates if x is not None]  # Remove all Nones from the dates list
 
     start = dates[0]
     end = dates[-1]
-
     if not _dv.check_year(start, end):
         return False
 
-    results = []
-    for i in range(len(dates) - 1):
-        current_month = dates[i]
-        next_month = dates[i + 1]
-        if current_month is None or next_month is None:
-            continue
+    for current_month, next_month in zip(dates, dates[1::]):
+        if not _dv.check_consecutive_dates(current_month, next_month):
+            return False
 
-        results.append(_dv.check_consecutive_dates(current_month, next_month))
-
-    if not all(results):
-        return False
     return True
 
 
