@@ -15,6 +15,16 @@ def _get_date_col(dataframe, to_or_from, keep_none=True):
         return [x for x in dates if x is not None]
 
 
+def ensure_correct_date_format(dataframe):
+    to_date_col = _get_date_col(dataframe, 'to', keep_none=False)
+    from_date_col = _get_date_col(dataframe, 'from', keep_none=False)
+
+    for col in [to_date_col, from_date_col]:
+        for date in col:
+            if not _dv.check_date_format(date):
+                raise ValueError(f'Date {date} is not the correct format. It should be: MMYY.')
+
+
 def ensure_total_timespan(dataframe):
     dates = _get_date_col(dataframe, 'to')
     start = dates[0]
@@ -58,5 +68,4 @@ def ensure_no_to_date_duplicates(dataframe):
             raise ValueError(f'PAYMENT TO date {date} has a duplicate.')
         checked.append(date)
 
-# TODO: add a function that loops through all dates and validates their format with _dv.check_date_format.
 # TODO: rearrange functions based on the order that they should be run
