@@ -1,18 +1,22 @@
 import _date_validators as _dv
 
 
-def _get_date_col(dataframe, to_or_from):
+def _get_date_col(dataframe, to_or_from, keep_none=True):
     acceptable_columns = ['to', 'from']
     if to_or_from not in acceptable_columns:
         raise ValueError(f'Invalid column argument "{to_or_from}", expected one of {*acceptable_columns,}')
 
     column = f'{to_or_from}_date'
-    return list(dataframe[column])
+    dates = list(dataframe[column])
+
+    if keep_none:
+        return dates
+    else:
+        return [x for x in dates if x is not None]
 
 
 def ensure_consecutive_dates(dataframe):
-    dates = _get_date_col(dataframe, 'to')
-    dates = [x for x in dates if x is not None]  # Remove all Nones from the dates list
+    dates = _get_date_col(dataframe, 'to', keep_none=False)  # Remove all Nones from the dates list
 
     start = dates[0]
     end = dates[-1]
