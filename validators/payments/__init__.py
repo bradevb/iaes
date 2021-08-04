@@ -1,0 +1,1 @@
+from validators.payments.payments import PAYMENT_VALIDATORS

@@ -15,9 +15,11 @@ and if a better method for validating is found.
 """
 
 from validators.dates import DATE_VALIDATORS
+from validators.payments import PAYMENT_VALIDATORS
 
 v_list = [
     DATE_VALIDATORS,
+    PAYMENT_VALIDATORS,
 ]
 
 VALIDATORS = []
