@@ -26,7 +26,7 @@ def ensure_correct_date_format(dataframe):
 
 
 def ensure_total_timespan(dataframe):
-    dates = _get_date_col(dataframe, 'to')
+    dates = _get_date_col(dataframe, 'to', False)
     start = dates[0]
     end = dates[-1]
 
