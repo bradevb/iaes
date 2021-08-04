@@ -16,11 +16,13 @@ and if a better method for validating is found.
 
 from validators.dates import DATE_VALIDATORS
 from validators.payments import PAYMENT_VALIDATORS
+from validators.months import MONTH_VALIDATORS
 
 v_list = [
     DATE_VALIDATORS,
     PAYMENT_VALIDATORS,
+    MONTH_VALIDATORS,
 ]
 
-VALIDATORS = []
-list(map(VALIDATORS.extend, v_list))
+ALL_VALIDATORS = []
+list(map(ALL_VALIDATORS.extend, v_list))
