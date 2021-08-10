@@ -1,15 +1,11 @@
-def _amount_to_float(amount):
-    """Inserts a decimal before the last two characters of amount and returns a float."""
-    if amount is None:
-        return None
-    return float(f'{amount[:-2]}.{amount[-2:]}')
+from validators.val_helpers import amount_to_float
 
 
 def _format_amount_cols(frame):
     """Returns a copy of frame, with transactions formatted as floats."""
     df = frame.copy()
-    df['to_amount'] = df['to_amount'].apply(lambda x: _amount_to_float(x))
-    df['from_amount'] = df['from_amount'].apply(lambda x: _amount_to_float(x))
+    df['to_amount'] = df['to_amount'].apply(lambda x: amount_to_float(x))
+    df['from_amount'] = df['from_amount'].apply(lambda x: amount_to_float(x))
     df = df.fillna({'to_amount': 0, 'from_amount': 0})
     return df
 
@@ -37,7 +33,7 @@ def _group_multi_payments(frame):
 def calc_balance(frame, start_amount):
     """Calculates balance for each month. Return slice of date and balance for each month."""
     if isinstance(start_amount, str):
-        start_amount = _amount_to_float(start_amount)
+        start_amount = amount_to_float(start_amount)
 
     df = frame.dropna(how='all')
     df = _format_amount_cols(df)
