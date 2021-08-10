@@ -1,6 +1,3 @@
-import pandas as pd
-
-
 def _amount_to_float(amount):
     """Inserts a decimal before the last two characters of amount and returns a float."""
     if amount is None:
@@ -27,47 +24,28 @@ def _calc_net(df, calc_cumnet=False):
     return df
 
 
-def _group_multi_payments(df):
-    new_df = df.groupby('from_date', as_index=False, sort=False, dropna=False)
-    # funcs = {'to_date': 'first', 'to_amount': 'sum', 'from_date': 'first', 'from_amount': 'sum'}
-    # new_df = df.groupby('from_date', as_index=False, sort=False, dropna=False, group_keys=False).agg(funcs)
-    # # g = df.groupby('from_date', as_index=False, sort=False, dropna=False).apply(lambda x: print(x.sum))
-    # new_df = df.groupby(['from_date', 'from_amount', 'to_date'], as_index=False, sort=False, dropna=False).agg(funcs)
+def _group_multi_payments(frame):
+    """Sums up all payments in each month."""
+    # Put dates in both to and from dates for grouping
+    df = frame.copy()
+    df['from_date'] = df['from_date'].fillna(df['to_date'])
+    df['to_date'] = df['to_date'].fillna(df['from_date'])
 
-    # grouped_indices = list(pd.core.common.flatten(group.indices.values()))
-
-    # group_sums = group.sum()
-
-    # df.drop(grouped_indices, inplace=True)
-    return new_df
-
-
-def oof(x):
-    print(x)
+    funcs = {'to_date': 'first', 'to_amount': 'sum', 'from_date': 'first', 'from_amount': 'sum'}
+    grouped = df.groupby(['to_date', 'from_date'], as_index=False, sort=False).agg(funcs)
+    return grouped
 
 
 def calc_balance(df, start_amount):
-    """Calculates balance for each month. Adds a balance column to df inplace."""
+    """Calculates balance for each month. Return slice of date and balance for each month."""
     if isinstance(start_amount, str):
         start_amount = _amount_to_float(start_amount)
 
     temp_df = _format_amount_cols(df)
-    temp_df.dropna(how='all', inplace=True)
-    _group_multi_payments(temp_df)
-
-    # temp_df = temp_df.groupby('from_date', sort=False).agg({'to_amount': 'sum', 'from_amount': 'sum', 'from_date':
-    #     oof},
-    #                                                        axis=1)
-    # temp_df = temp_df.groupby('from_date', sort=False).apply(lambda x: grouped_indices.append(x.index)).sum()
+    temp_df = temp_df.dropna(how='all')
+    temp_df = _group_multi_payments(temp_df)
 
     _calc_net(temp_df, calc_cumnet=True)
-    df['balance'] = temp_df['_cumnet'] + start_amount  # Add cumulative net gain/loss to start_amount
+    temp_df['balance'] = temp_df['_cumnet'] + start_amount  # Add cumulative net gain/loss to start_amount
 
-    print()
-
-    # Get aggregate balances in to and from cols
-    # to_group = df.groupby('to_date', sort=False).agg({'balance': 'sum'})
-    # from_group = df.groupby('from_date', sort=False).agg({'balance': 'sum'})
-    # balance = pd.concat([to_group, from_group]).drop_duplicates()
-
-    return balance
+    return temp_df.loc[:, ('to_date', 'balance')]
