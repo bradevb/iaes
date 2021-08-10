@@ -8,3 +8,4 @@ top_bottom.py contains validators that check the top cells against the bottom df
 """
 
 from validators.top.top import TOP_VALIDATORS
+from validators.top.top_bottom import TOP_BOTTOM_VALIDATORS
