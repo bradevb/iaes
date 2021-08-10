@@ -41,5 +41,6 @@ def calc_balance(frame, start_amount):
     df = _calc_net(df)
 
     df['balance'] = df['_cumnet'] + start_amount  # Add cumulative net gain/loss to start_amount
+    df = df.rename(columns={'to_date': 'date'})  # Rename to_date col for return
 
-    return df.loc[:, ('to_date', 'balance')]
+    return df.loc[:, ('date', 'balance')]
