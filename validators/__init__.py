@@ -17,12 +17,13 @@ and if a better method for validating is found.
 from validators.dates import DATE_VALIDATORS
 from validators.payments import PAYMENT_VALIDATORS
 from validators.months import MONTH_VALIDATORS
+from validators.top import TOP_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
-v_list = [
+bottom_form_v_list = [
     DATE_VALIDATORS,
     PAYMENT_VALIDATORS,
     MONTH_VALIDATORS,
 ]
 
-ALL_VALIDATORS = []
-list(map(ALL_VALIDATORS.extend, v_list))
+BOTTOM_VALIDATORS = []
+list(map(BOTTOM_VALIDATORS.extend, bottom_form_v_list))
