@@ -8,10 +8,14 @@ import cv2 as cv
 from screenshot import screencapture
 from extractor import FormExtractor, CellExtractor
 
+# These are both temporary for testing. In prod, load them in from config
+APP_NAME = 'Microsoft Remote Desktop'
+WINDOW_NAME = 'DRPR-RDS-CAP2'
 
-def capture_remote(app_name='Microsoft Remote Desktop'):
+
+def capture_remote(app_name, window_name):
     with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
-        screencapture.screenshot_window(app_name, filename=temp_image.name)
+        screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
         return image_utils.load_image(temp_image.name)
 
 
@@ -85,7 +89,7 @@ def get_bottom_form(cells, img):
 
 
 def main():
-    image = capture_remote()
+    image = capture_remote(APP_NAME, WINDOW_NAME)
     # image = image_utils.load_image('./tests/images/130.png')
 
     captiva_form = get_captiva_form(image)
