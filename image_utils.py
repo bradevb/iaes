@@ -31,7 +31,13 @@ def show_result(img, timeout=0, win_name='TEST IMAGE', ensure_destruction=False,
     if topmost:
         cv.setWindowProperty(win_name, cv.WND_PROP_TOPMOST, 1)
     cv.imshow(win_name, img)
-    cv.waitKey(timeout)
+
+    if timeout:
+        cv.waitKey(timeout)
+    else:
+        while cv.waitKey(33) == -1:  # Wait until a key is pressed, or KeyboardInterrupt
+            pass
+
     cv.destroyWindow(win_name)
     if ensure_destruction:
         cv.waitKey(1)
