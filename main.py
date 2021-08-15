@@ -13,20 +13,53 @@ APP_NAME = 'Microsoft Remote Desktop'
 WINDOW_NAME = 'DRPR-RDS-CAP2'
 
 
-def cap_rem(app_name, window_name):
-    with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
-        screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
+class RemoteDesktop:
+    def __init__(self, app_name, window_name):
+        self.window_name = window_name
+        self.app_name = app_name
+        self.has_run = False
+        self.win_id = None
+        self._windows = None
 
-        windows = list(get_window_id.gen_window_ids(app_name, window_name, options=''))
+    def screenshot_remote(self):
+        self.check_win_id()
 
-        return image_utils.load_image(temp_image.name)
+        with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
+            screencapture.screenshot_window(self.app_name, title=self.window_name, filename=temp_image.name,
+                                            window_selection_options='on_screen_only')
+
+            return image_utils.load_image(temp_image.name)
+
+    def check_win_id(self):
+        self._get_windows()
+
+        if not self._validate_win_list():
+            self._select_window()
+        elif self.has_run and self._windows[0] != self.win_id:
+            self._select_window()
+
+        self.has_run = True
+
+    def _select_window(self):
+        while not self._validate_win_list():
+            print("There's been an error finding the correct Remote Desktop window.")
+            print('The window has either changed or is not visible on screen.')
+            print('Please put ONLY the window that has the IAES form on the screen, and press Enter.')
+            input()
+            self._get_windows()
+
+        self.win_id = self._windows[0]
+
+    def _validate_win_list(self):
+        if len(self._windows) > 1 or not self._windows:
+            return False
+        return True
+
+    def _get_windows(self):
+        self._windows = list(get_window_id.gen_window_ids(self.app_name, self.window_name, options='on_screen_only'))
 
 
-cap_rem(APP_NAME, WINDOW_NAME)
-exit()
-
-
-def capture_remote(app_name, window_name):
+def cap_rem(app_name, window_name):  # This is still here for development/testing purposes. TODO: delete it.
     with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
         screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
         return image_utils.load_image(temp_image.name)
@@ -102,7 +135,7 @@ def get_bottom_form(cells, img):
 
 
 def main():
-    image = capture_remote(APP_NAME, WINDOW_NAME)
+    image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
     # image = image_utils.load_image('./tests/images/130.png')
 
     captiva_form = get_captiva_form(image)
