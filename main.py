@@ -5,12 +5,25 @@ import numpy as np
 import image_utils
 import processors
 import cv2 as cv
-from screenshot import screencapture
+from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
 
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
 WINDOW_NAME = 'DRPR-RDS-CAP2'
+
+
+def cap_rem(app_name, window_name):
+    with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
+        screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
+
+        windows = list(get_window_id.gen_window_ids(app_name, window_name, options=''))
+
+        return image_utils.load_image(temp_image.name)
+
+
+cap_rem(APP_NAME, WINDOW_NAME)
+exit()
 
 
 def capture_remote(app_name, window_name):
