@@ -90,7 +90,7 @@ def get_cell_ext(img):
     preprocessors = [
         lambda i: image_utils.replace_color(i, orange_low, orange_high, replacement),
         lambda i: processors.convert_gray(i),
-        lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY)
+        lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
     ]
 
     return CellExtractor(img, preprocessors, line_width=1, line_min_len=15, output_process=True)
@@ -134,24 +134,34 @@ def get_bottom_form(cells, img):
         raise RuntimeError('Bottom form could not be found.')
 
 
+def get_cell_images(orig, cells):
+    images = []
+    for x, y, w, h in cells:
+        images.append(orig[y:y + h, x:x + w])
+    return images
+
+
+def parse_form(form_images, table_type, row_type, num_cols):
+    pass
+
+
 def main():
     image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
-    # image = image_utils.load_image('./tests/images/130.png')
 
     captiva_form = get_captiva_form(image)
-    image_utils.show_result(captiva_form)
     cell_ext = get_cell_ext(captiva_form)
-    cells = sorted(cell_ext.group_cells(75, 45), key=len, reverse=True)
 
-    # top_form = get_top_form(cells, captiva_form)
-    # bot_form = get_bottom_form(cells, captiva_form)
-    top_form = cells[2]
-    bot_form = sorted(cells[0], key=lambda c: (c[1], c[0]))
+    groups = cell_ext.group_cells(75, 45)
+    cells = sorted(groups, key=len, reverse=True)
 
-    # top_form_bounds =  # TODO: delete these boundary variables
+    if len(cells) != 3:
+        raise RuntimeError("Couldn't find top and bottom forms.")
 
-    image_utils.show_result(top_form)
-    image_utils.show_result(bot_form)
+    top_form_coords = sorted(cells[2], key=lambda c: (c[1], c[0]))
+    bot_form_coords = sorted(cells[0], key=lambda c: (c[1], c[0]))
+
+    top_form_images = get_cell_images(captiva_form, top_form_coords)
+    bot_form_images = get_cell_images(captiva_form, bot_form_coords)
 
 
 if __name__ == '__main__':
