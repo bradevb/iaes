@@ -1,5 +1,6 @@
 import cv2 as cv
 import imutils
+import imutils.contours
 import numpy as np
 
 import image_utils
@@ -151,40 +152,42 @@ class CellExtractor(Extractor):
         super().__init__(img_or_path, preprocessors, output_process)
 
     def _extract(self):
-        _, kernel1_h, kernel1_v = image_utils.generate_kernels(self.line_width)
-        _, kernel6_h, kernel6_v = image_utils.generate_kernels(self.line_min_len)
+        processed_copy = self._processed.copy()
 
-        # Bridge small gap in horizontal lines, erode everything else in horizontal direction
-        img_bin_h = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_h)
-        img_bin_h = cv.morphologyEx(img_bin_h, cv.MORPH_OPEN, kernel6_h)
-        # Do the above, but with vertical lines
-        img_bin_v = cv.morphologyEx(~self._processed, cv.MORPH_CLOSE, kernel1_v)
-        img_bin_v = cv.morphologyEx(img_bin_v, cv.MORPH_OPEN, kernel6_v)
+        # Detect horizontal lines
+        hor = 23
+        horizontal_kernel1 = cv.getStructuringElement(cv.MORPH_RECT, (hor, 1))
+        detect_horizontal = cv.morphologyEx(processed_copy, cv.MORPH_OPEN, horizontal_kernel1, iterations=2)
 
-        # Combine img_bins with bitwise or, and turn the result into a binary image
-        img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(img_bin_h) |
-                                                  image_utils.fix_as_binary(img_bin_v))
+        # Detect vertical lines
+        vert = 9
+        vertical_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, vert))
+        detect_vertical = cv.morphologyEx(processed_copy, cv.MORPH_OPEN, vertical_kernel, iterations=2)
 
-        if self.dilation_factor is not None:
-            # Dilate the final binary image a little bit to ensure all cells are connected
-            final_kernel = np.ones((self.dilation_factor, self.dilation_factor), np.uint8)
-            img_bin_final = cv.dilate(img_bin_final, final_kernel, iterations=1)
+        img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(detect_horizontal) |
+                                                  image_utils.fix_as_binary(detect_vertical))
 
-        ret, labels, stats, centroids = cv.connectedComponentsWithStats(~img_bin_final, connectivity=8, ltype=cv.CV_32S)
+        contours = cv.findContours(img_bin_final, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        contours = contours[0] if len(contours) == 2 else contours[1]
 
         cell_images = []
         cell_coords = []
 
-        debug_image = self._image.copy()
+        for c in contours:
+            x, y, w, h = cv.boundingRect(c)
+            cell_area = w * h
 
-        for x, y, w, h, area in stats[2:]:
-            if area > 100:
-                cell = self._image[y:y + h, x:x + w]
-                cell_images.append(cell)
-                cell_coords.append((x, y, w, h))
-                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            if cell_area < 100:  # Skip any contours that are just noise
+                continue
+
+            cell = self._image[y:y + h, x:x + w]
+            cell_images.append(cell)
+            cell_coords.append((x, y, w, h))
 
         if self.output_process:
+            debug_image = self._image.copy()
+            for x, y, w, h in cell_coords:
+                cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
             image_utils.show_result(debug_image)
 
         self._cell_coords = cell_coords
