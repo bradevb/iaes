@@ -1,6 +1,8 @@
 import tempfile
 
 import numpy as np
+import pandas as pd
+import pytesseract
 
 import image_utils
 import processors
@@ -11,6 +13,15 @@ from extractor import FormExtractor, CellExtractor
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
 WINDOW_NAME = 'DRPR-RDS-CAP2'
+
+TOP_COL_NAMES = ['proj_start_date',
+                 'beginning_bal',
+                 'proj_min_date',
+                 'proj_min_bal',
+                 'total_amount',
+                 'pi_amount',
+                 'monthly_amount']
+BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
 
 
 class RemoteDesktop:
@@ -93,7 +104,7 @@ def get_cell_ext(img):
         lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
     ]
 
-    return CellExtractor(img, preprocessors, line_width=1, line_min_len=15, output_process=True)
+    return CellExtractor(img, preprocessors, line_width=1, line_min_len=15)
 
 
 def get_top_form(cells, img):
@@ -141,8 +152,26 @@ def get_cell_images(orig, cells):
     return images
 
 
-def parse_form(form_images, table_type, row_type, num_cols):
-    pass
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
+def build_table(form_images, col_names):
+    """col_names is a list of expected column names."""
+    table = []
+    rows = chunks(form_images, len(col_names))
+
+    for r in rows:
+        row = {}
+
+        for cell, name in zip(r, col_names):
+            row[name] = cell
+
+        table.append(row)
+
+    return table if len(table) > 1 else table[0]
 
 
 def main():
@@ -162,6 +191,9 @@ def main():
 
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
+
+    top_table = build_table(top_form_images, TOP_COL_NAMES)
+    bot_table = build_table(bot_form_images, BOT_COL_NAMES)
 
 
 if __name__ == '__main__':
