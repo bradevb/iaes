@@ -70,3 +70,15 @@ def replace_color(image, low_thresh, high_thresh, replacement_color):
     mask = get_color_mask(image, low_thresh, high_thresh)
     image[mask > 0] = replacement_color
     return image
+
+
+def pad_match_concat(big_img, small_img, axis=1):
+    """Takes a big image and small image, pads the small image, and concatenates the two. Mainly for displaying two
+    different sized images side-by-side."""
+    if big_img.shape == small_img.shape:
+        return np.concatenate([big_img, small_img], axis=axis)
+
+    padded = np.zeros_like(big_img)
+    padded[:small_img.shape[0], :small_img.shape[1]] = small_img
+
+    return np.concatenate([big_img, padded], axis=axis)
