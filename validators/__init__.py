@@ -20,9 +20,9 @@ from validators.months import MONTH_VALIDATORS
 from validators.top import TOP_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 bottom_form_v_list = [
-    DATE_VALIDATORS,
-    PAYMENT_VALIDATORS,
     MONTH_VALIDATORS,
+    PAYMENT_VALIDATORS,
+    DATE_VALIDATORS,
 ]
 
 BOTTOM_VALIDATORS = []

@@ -213,11 +213,16 @@ def main():
     captiva_form = get_captiva_form(image)
     cell_ext = get_cell_ext(captiva_form)
 
-    groups = cell_ext.group_cells(75, 45)
+    groups = cell_ext.group_cells(75, 30)
     cells = sorted(groups, key=len, reverse=True)
+    top_form_coords, bot_form_coords = cells[2], cells[0]
 
     if len(cells) != 3:
         raise RuntimeError("Couldn't find top and bottom forms.")
+    if len(top_form_coords) != 7:
+        raise RuntimeError("Couldn't properly read top form.")
+    if len(bot_form_coords) % 5 != 0:
+        raise RuntimeError("Couldn't properly read bottom form.")
 
     top_form_coords = sorted(cells[2], key=lambda c: (c[1], c[0]))
     bot_form_coords = sorted(cells[0], key=lambda c: (c[1], c[0]))
@@ -235,7 +240,8 @@ def main():
         print(f'{Fore.RED}VALIDATION ERROR:')
         print(f'{Fore.RED}{e}')
     else:
-        print(f'{Fore.GREEN}All good!')
+        print(f'{Fore.GREEN}VALIDATORS PASSED!')
+        print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
 
     print('Done')
 
