@@ -51,7 +51,7 @@ def ensure_no_blank_months(df):
 
     for row, month in enumerate(trimmed_df):
         if not any(month):
-            raise ValueError(f'Row {row} is blank. There should not be any completely blank rows.')
+            raise ValueError(f'Row {row + 1} is blank. There should not be any completely blank rows.')
 
 
 MONTH_VALIDATORS = [

@@ -23,6 +23,6 @@ def ensure_all_cells_present(df):
 
 
 TOP_VALIDATORS = [
-    ensure_total_amount,
     ensure_all_cells_present,
+    ensure_total_amount,
 ]
