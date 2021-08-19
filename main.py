@@ -3,6 +3,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 import pytesseract
+from colorama import Fore
 from tqdm import tqdm
 
 import image_utils
@@ -11,6 +12,7 @@ import cv2 as cv
 from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm
+from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
@@ -22,7 +24,7 @@ TOP_COL_NAMES = ['proj_start_date',
                  'proj_min_bal',
                  'total_amount',
                  'pi_amount',
-                 'monthly_amount']
+                 'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
 
 TEXT_COLOR_LOW = (0, 0, 0)
@@ -223,10 +225,19 @@ def main():
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
 
-    top_table = pd.Series(build_table(top_form_images, TOP_COL_NAMES))
-    bot_table = pd.DataFrame(build_table(bot_form_images, BOT_COL_NAMES))
+    top_table = TopForm(build_table(top_form_images, TOP_COL_NAMES), validators=TOP_VALIDATORS)
+    bot_table = BottomForm(build_table(bot_form_images, BOT_COL_NAMES), validators=BOTTOM_VALIDATORS)
+    top_bot_table = TopBottomForm(top_table, bot_table, validators=TOP_BOTTOM_VALIDATORS)
 
-    print()
+    try:
+        top_bot_table.validate()
+    except ValueError as e:
+        print(f'{Fore.RED}VALIDATION ERROR:')
+        print(f'{Fore.RED}{e}')
+    else:
+        print(f'{Fore.GREEN}All good!')
+
+    print('Done')
 
 
 if __name__ == '__main__':
