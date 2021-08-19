@@ -44,10 +44,7 @@ class TopForm:
             return
 
         for v in self.validators:
-            try:
-                v(self.df)
-            except ValueError as e:
-                return e
+            v(self.df)
 
 
 @dataclass
@@ -67,10 +64,7 @@ class BottomForm:
             return
 
         for v in self.validators:
-            try:
-                v(self.df)
-            except ValueError as e:
-                return e
+            v(self.df)
 
 
 @dataclass
@@ -80,14 +74,8 @@ class TopBottomForm:
     validators: list
 
     def validate(self):
-        top_errs = self.top_form.validate()
-        bot_errs = self.bot_form.validate()
-        for errs in [top_errs, bot_errs]:  # Return top_errs first if any, then bot_errs
-            if errs:
-                return errs
+        self.top_form.validate()
+        self.bot_form.validate()
 
         for v in self.validators:
-            try:
-                v(self.top_form.df, self.bot_form.df)
-            except ValueError as e:
-                return e
+            v(self.top_form.df, self.bot_form.df)
