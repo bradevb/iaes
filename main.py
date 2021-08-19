@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytesseract
 from colorama import Fore
+from pynput import keyboard
 from tqdm import tqdm
 
 import image_utils
@@ -12,6 +13,7 @@ import cv2 as cv
 from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm
+from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 # These are both temporary for testing. In prod, load them in from config
@@ -49,6 +51,7 @@ class RemoteDesktop:
             return image_utils.load_image(temp_image.name)
 
     def check_win_id(self):
+        # TODO: check to see if previous window id is present. If it is, use its id to screenshot window
         self._get_windows()
 
         if not self._validate_win_list():
@@ -207,8 +210,11 @@ def build_table(form_images, col_names):
     return table if len(table) > 1 else table[0]
 
 
-def parse_and_validate():
-    image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
+def parse_and_validate():  # TODO: move this to its own thread/process, kill it if it's running and a new event comes in
+    print('Parsing and validating forms...')
+    # image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
+    rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
+    image = rdp.screenshot_remote()
 
     captiva_form = get_captiva_form(image)
     cell_ext = get_cell_ext(captiva_form)
@@ -216,6 +222,7 @@ def parse_and_validate():
     groups = cell_ext.group_cells(75, 30)
     cells = sorted(groups, key=len, reverse=True)
     top_form_coords, bot_form_coords = cells[2], cells[0]
+    # TODO: get entire bounding box of each form, and check for presence of red pixels in them
 
     if len(cells) != 3:
         raise RuntimeError("Couldn't find top and bottom forms.")
@@ -239,16 +246,40 @@ def parse_and_validate():
     except ValueError as e:
         print(f'{Fore.RED}VALIDATION ERROR:')
         print(f'{Fore.RED}{e}')
+        #     TODO: maybe put something here that begins to listen for any keyboard and/or mouse events. When those
+        #      events happen, run this function again. Do this recursively maybe, until the validator passes. Once the
+        #      validator passes, find the way to remove keyboard and mouse listeners, and do that.
+        with keyboard.Events() as events:
+            event = events.get()  # Block until a key is pressed
+            parse_and_validate()
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
-        return True
+        print(f'{Fore.GREEN}This is the expected final balance: '
+              f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
+        # TODO: Put a print here that tells the user what the last month's balance should be. Remind the user that
+        #  they MUST check that with the IAES document. If it does not match, there is something wrong, and the user
+        #  needs to go through the entire form and double check everything.
+        # TODO: Put a print here that checks the descriptions and prints them in red if they don't match expected
+        #  descriptions.
+        print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.')
+        return False  # This is to stop the hotkey listener
 
 
 def main():
     # Here, listen for hotkey, and run parse_and_validate when it's pressed. I'll do more in the future with hotkeys
     # and keypress listening, but for now, this works.
-    pass
+
+    # TODO: make sure that hotkeys are ALWAYS listened for.
+    # TODO: Consider making a queue that handles events. That way, I can cancel any parsing that's currenlty
+    #  happening if the user wants to cancel it.
+    print('Waiting for hotkey...')
+    hotkeys = {'<cmd>+p': parse_and_validate}
+    with keyboard.GlobalHotKeys(hotkeys) as h:
+        try:
+            h.join()
+        except Exception as e:
+            print(e)
 
 
 if __name__ == '__main__':
