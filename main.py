@@ -207,7 +207,7 @@ def build_table(form_images, col_names):
     return table if len(table) > 1 else table[0]
 
 
-def main():
+def parse_and_validate():
     image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
 
     captiva_form = get_captiva_form(image)
@@ -242,8 +242,13 @@ def main():
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
+        return True
 
-    print('Done')
+
+def main():
+    # Here, listen for hotkey, and run parse_and_validate when it's pressed. I'll do more in the future with hotkeys
+    # and keypress listening, but for now, this works.
+    pass
 
 
 if __name__ == '__main__':
