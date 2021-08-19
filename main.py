@@ -3,12 +3,14 @@ import tempfile
 import numpy as np
 import pandas as pd
 import pytesseract
+from tqdm import tqdm
 
 import image_utils
 import processors
 import cv2 as cv
 from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
+from form.iaes_forms import TopForm, BottomForm, TopBottomForm
 
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
@@ -22,6 +24,9 @@ TOP_COL_NAMES = ['proj_start_date',
                  'pi_amount',
                  'monthly_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
+
+TEXT_COLOR_LOW = (0, 0, 0)
+TEXT_COLOR_HIGH = (179, 255, 182)
 
 
 class RemoteDesktop:
@@ -147,8 +152,11 @@ def get_bottom_form(cells, img):
 
 def get_cell_images(orig, cells):
     images = []
+    temp = orig.copy()
+
     for x, y, w, h in cells:
-        images.append(orig[y:y + h, x:x + w])
+        cv.rectangle(temp, (x, y), (x + w, y + h), (255, 255, 255), 3)  # Cover up cell borders
+        images.append(temp[y:y + h, x:x + w])
     return images
 
 
@@ -158,18 +166,41 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
+def parse_cell(cell, scale=3):
+    # Check if cell has text in it
+    mask = image_utils.get_color_mask(cell, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
+    text_in_cell = cv.countNonZero(mask)
+
+    if not text_in_cell:
+        return None
+
+    img = cell.copy()
+    img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
+
+    text = pytesseract.image_to_string(img, config='--psm 6')
+    return text.replace('\n', '').replace('\f', '').replace('\t', '')
+
+
 def build_table(form_images, col_names):
     """col_names is a list of expected column names."""
     table = []
     rows = chunks(form_images, len(col_names))
 
-    for r in rows:
-        row = {}
+    with tqdm(total=len(form_images)) as pbar:
+        for r in rows:
+            row = {}
 
-        for cell, name in zip(r, col_names):
-            row[name] = cell
+            for cell, name in zip(r, col_names):
+                row[name] = parse_cell(cell, scale=3)
+                pbar.update()
 
-        table.append(row)
+                # Uncomment for debugging
+                # tess_input = image_utils.load_image('./tessinput.tif')
+                # both = image_utils.pad_match_concat(tess_input, cell)
+                # both = cv.resize(both, None, fx=3, fy=3, interpolation=cv.INTER_CUBIC)
+                # image_utils.show_result(both)
+
+            table.append(row)
 
     return table if len(table) > 1 else table[0]
 
@@ -192,8 +223,10 @@ def main():
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
 
-    top_table = build_table(top_form_images, TOP_COL_NAMES)
-    bot_table = build_table(bot_form_images, BOT_COL_NAMES)
+    top_table = pd.Series(build_table(top_form_images, TOP_COL_NAMES))
+    bot_table = pd.DataFrame(build_table(bot_form_images, BOT_COL_NAMES))
+
+    print()
 
 
 if __name__ == '__main__':
