@@ -178,7 +178,9 @@ def parse_cell(cell, scale=3):
 
     if not text_in_cell:
         return None
-
+    # TODO: find a way to remove the cursor from a cell if it's there. An easy way to do this might be to just erode
+    #  the contents of the cell, and then check the cell for text color (since the text is thicker than the cursor,
+    #  there should be some remnants of text color left)
     img = cell.copy()
     img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
 
@@ -210,9 +212,20 @@ def build_table(form_images, col_names):
     return table if len(table) > 1 else table[0]
 
 
+def get_form_bounds(img, cell_group):
+    min_x = min(cell_group, key=lambda c: c[0])[0]
+    min_y = min(cell_group, key=lambda c: c[1])[1]
+    max_x = max(cell_group, key=lambda c: c[0] + c[2])[0]
+    max_y = max(cell_group, key=lambda c: c[1] + c[3])[1]
+
+    image = img[min_x:max_x, min_y:max_y]
+    image_utils.show_result(image)
+
+
+# TODO: when sorting cells, fix the bug where the selected cell (which is bigger than the others) gets put in the
+#  wrong place
 def parse_and_validate():  # TODO: move this to its own thread/process, kill it if it's running and a new event comes in
     print('Parsing and validating forms...')
-    # image = cap_rem(APP_NAME, WINDOW_NAME)  # TODO: change this later to use the RemoteDesktop class
     rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
     image = rdp.screenshot_remote()
 
@@ -222,7 +235,11 @@ def parse_and_validate():  # TODO: move this to its own thread/process, kill it 
     groups = cell_ext.group_cells(75, 30)
     cells = sorted(groups, key=len, reverse=True)
     top_form_coords, bot_form_coords = cells[2], cells[0]
-    # TODO: get entire bounding box of each form, and check for presence of red pixels in them
+    # TODO: get entire bounding box of each form, and check for presence of red pixels in them. If red cells are
+    #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
+    #  to an empty one.
+    # get_form_bounds(captiva_form, top_form_coords)
+    # get_form_bounds(captiva_form, bot_form_coords)
 
     if len(cells) != 3:
         raise RuntimeError("Couldn't find top and bottom forms.")
@@ -243,26 +260,36 @@ def parse_and_validate():  # TODO: move this to its own thread/process, kill it 
 
     try:
         top_bot_table.validate()
+        # TODO: reorder month validators so that month-to-month vals run before one year apart
+        #  vals
     except ValueError as e:
+
         print(f'{Fore.RED}VALIDATION ERROR:')
         print(f'{Fore.RED}{e}')
+        print()
         #     TODO: maybe put something here that begins to listen for any keyboard and/or mouse events. When those
         #      events happen, run this function again. Do this recursively maybe, until the validator passes. Once the
         #      validator passes, find the way to remove keyboard and mouse listeners, and do that.
-        with keyboard.Events() as events:
-            event = events.get()  # Block until a key is pressed
-            parse_and_validate()
+        # with keyboard.Events() as events:
+        #     event = events.get()  # Block until a key is pressed
+        #     parse_and_validate()
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
+
+        # TODO: make this always return two decimal points
         print(f'{Fore.GREEN}This is the expected final balance: '
               f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
-        # TODO: Put a print here that tells the user what the last month's balance should be. Remind the user that
-        #  they MUST check that with the IAES document. If it does not match, there is something wrong, and the user
-        #  needs to go through the entire form and double check everything.
-        # TODO: Put a print here that checks the descriptions and prints them in red if they don't match expected
-        #  descriptions.
         print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.')
+        print()
+
+        # TODO: Put a print here that tells the user what the last month's balance should be. Remind the user that
+        #  they MUST check that with the IAES document. Maybe even pause execution and wait for user to confirm it
+        #  matches. If it does not match, there is something wrong, and the user needs to go through the entire form
+        #  and double check everything.
+        # TODO: Put a print here that checks the descriptions and prints them in red if they don't match expected
+        #  descriptions. For County Property Tax(es), put them in yellow so that the user knows they're in the
+        #  dictionary, but need to be checked just in case.
         return False  # This is to stop the hotkey listener
 
 
@@ -274,12 +301,14 @@ def main():
     # TODO: Consider making a queue that handles events. That way, I can cancel any parsing that's currenlty
     #  happening if the user wants to cancel it.
     print('Waiting for hotkey...')
-    hotkeys = {'<cmd>+p': parse_and_validate}
+    print('Make sure there is a blank cell selected when you press the hotkey.')
+    hotkeys = {'<f4>': parse_and_validate}  # TODO: change the hotkey, maybe stop propogation
     with keyboard.GlobalHotKeys(hotkeys) as h:
         try:
             h.join()
         except Exception as e:
             print(e)
+    # parse_and_validate()
 
 
 if __name__ == '__main__':
