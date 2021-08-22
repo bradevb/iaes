@@ -71,8 +71,8 @@ def ensure_same_date_cols(dataframe):
 
 DATE_VALIDATORS = [
     ensure_correct_date_format,
-    ensure_total_timespan,
     ensure_no_to_date_duplicates,
     ensure_consecutive_dates,
+    ensure_total_timespan,
     ensure_same_date_cols,
 ]

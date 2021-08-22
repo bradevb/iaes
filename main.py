@@ -19,6 +19,7 @@ from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 ENV = os.getenv('ENV')
+DEV = ENV == 'DEV'
 
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
@@ -220,9 +221,11 @@ def build_table(form_images, col_names):
         for cell in cells:
             futures.append(executor.submit(parse_cell, cell))
 
-        for f in concurrent.futures.as_completed(futures):
-            cell = f.result()
-            table[cell.row_idx][cell.col_name] = cell.text
+        with tqdm(futures) as pbar:
+            for f in concurrent.futures.as_completed(futures):
+                cell = f.result()
+                table[cell.row_idx][cell.col_name] = cell.text
+                pbar.update()
 
     return table if len(table) > 1 else table[0]
 
@@ -240,7 +243,7 @@ def get_form_bounds(img, cell_group):
 # TODO: when sorting cells, fix the bug where the selected cell (which is bigger than the others) gets put in the
 #  wrong place
 def parse_and_validate():
-    if ENV == 'DEV':
+    if DEV:
         image = _cap_rem(APP_NAME, WINDOW_NAME)
     else:
         rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
@@ -279,7 +282,6 @@ def parse_and_validate():
 
     try:
         top_bot_table.validate()
-        # TODO: reorder month validators so that month-to-month vals run before one year apart vals
     except ValueError as e:
 
         print(f'{Fore.RED}VALIDATION ERROR:')
@@ -326,7 +328,7 @@ def main():
     #  happening if the user wants to cancel it.
     print('Waiting for hotkey...')
     print('Make sure there is a blank cell selected when you press the hotkey.')
-    hotkeys = {'<f4>': main_thread}  # TODO: change the hotkey, maybe stop propogation
+    hotkeys = {'<alt>' if DEV else 'f4': main_thread}  # TODO: change the hotkey, maybe stop propogation
     with keyboard.GlobalHotKeys(hotkeys) as h:
         try:
             h.join()
