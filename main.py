@@ -1,7 +1,9 @@
+import concurrent.futures
 import tempfile
+import threading
+import os
 
 import numpy as np
-import pandas as pd
 import pytesseract
 from colorama import Fore
 from pynput import keyboard
@@ -12,9 +14,11 @@ import processors
 import cv2 as cv
 from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
-from form.iaes_forms import TopForm, BottomForm, TopBottomForm
+from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
 from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
+
+ENV = os.getenv('ENV')
 
 # These are both temporary for testing. In prod, load them in from config
 APP_NAME = 'Microsoft Remote Desktop'
@@ -80,7 +84,8 @@ class RemoteDesktop:
         self._windows = list(get_window_id.gen_window_ids(self.app_name, self.window_name, options='on_screen_only'))
 
 
-def cap_rem(app_name, window_name):  # This is still here for development/testing purposes. TODO: delete it.
+def _cap_rem(app_name, window_name):
+    """Captures remote even when the remote window is in the background. Only for dev and testing purposes."""
     with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
         screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
         return image_utils.load_image(temp_image.name)
@@ -171,21 +176,24 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def parse_cell(cell, scale=3):
+def parse_cell(cell: Cell, scale=3):
+    img = cell.image.copy()
+
     # Check if cell has text in it
-    mask = image_utils.get_color_mask(cell, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
+    mask = image_utils.get_color_mask(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
     text_in_cell = cv.countNonZero(mask)
 
     if not text_in_cell:
-        return None
+        return cell
+        # return None
     # TODO: find a way to remove the cursor from a cell if it's there. An easy way to do this might be to just erode
     #  the contents of the cell, and then check the cell for text color (since the text is thicker than the cursor,
     #  there should be some remnants of text color left)
-    img = cell.copy()
     img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
 
     text = pytesseract.image_to_string(img, config='--psm 6')
-    return text.replace('\n', '').replace('\f', '').replace('\t', '')
+    cell.text = text.replace('\n', '').replace('\f', '').replace('\t', '')
+    return cell
 
 
 def build_table(form_images, col_names):
@@ -193,21 +201,28 @@ def build_table(form_images, col_names):
     table = []
     rows = chunks(form_images, len(col_names))
 
-    with tqdm(total=len(form_images)) as pbar:
-        for r in rows:
-            row = {}
+    # Prepare the table and Cell list for OCR step
+    cells = []
+    for row_idx, r in enumerate(rows):
+        row = {}
 
-            for cell, name in zip(r, col_names):
-                row[name] = parse_cell(cell, scale=3)
-                pbar.update()
+        for cell_img, name in zip(r, col_names):
+            row[name] = None
+            cells.append(Cell(cell_img, row_idx, name))
 
-                # Uncomment for debugging
-                # tess_input = image_utils.load_image('./tessinput.tif')
-                # both = image_utils.pad_match_concat(tess_input, cell)
-                # both = cv.resize(both, None, fx=3, fy=3, interpolation=cv.INTER_CUBIC)
-                # image_utils.show_result(both)
+        table.append(row)
 
-            table.append(row)
+    # Spawn OCR threads. These are threads instead of processes because pytesseract spawns subprocesses of tesseract,
+    # and are therefore similar to an IO bound task.
+    futures = []
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for cell in cells:
+            futures.append(executor.submit(parse_cell, cell))
+
+        for f in concurrent.futures.as_completed(futures):
+            cell = f.result()
+            table[cell.row_idx][cell.col_name] = cell.text
 
     return table if len(table) > 1 else table[0]
 
@@ -224,10 +239,14 @@ def get_form_bounds(img, cell_group):
 
 # TODO: when sorting cells, fix the bug where the selected cell (which is bigger than the others) gets put in the
 #  wrong place
-def parse_and_validate():  # TODO: move this to its own thread/process, kill it if it's running and a new event comes in
+def parse_and_validate():
+    if ENV == 'DEV':
+        image = _cap_rem(APP_NAME, WINDOW_NAME)
+    else:
+        rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
+        image = rdp.screenshot_remote()
+
     print('Parsing and validating forms...')
-    rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
-    image = rdp.screenshot_remote()
 
     captiva_form = get_captiva_form(image)
     cell_ext = get_cell_ext(captiva_form)
@@ -260,8 +279,7 @@ def parse_and_validate():  # TODO: move this to its own thread/process, kill it 
 
     try:
         top_bot_table.validate()
-        # TODO: reorder month validators so that month-to-month vals run before one year apart
-        #  vals
+        # TODO: reorder month validators so that month-to-month vals run before one year apart vals
     except ValueError as e:
 
         print(f'{Fore.RED}VALIDATION ERROR:')
@@ -293,6 +311,12 @@ def parse_and_validate():  # TODO: move this to its own thread/process, kill it 
         return False  # This is to stop the hotkey listener
 
 
+def main_thread():
+    # TODO: kill thread if a new keyboard event comes in
+    t = threading.Thread(target=parse_and_validate)
+    t.start()
+
+
 def main():
     # Here, listen for hotkey, and run parse_and_validate when it's pressed. I'll do more in the future with hotkeys
     # and keypress listening, but for now, this works.
@@ -302,7 +326,7 @@ def main():
     #  happening if the user wants to cancel it.
     print('Waiting for hotkey...')
     print('Make sure there is a blank cell selected when you press the hotkey.')
-    hotkeys = {'<f4>': parse_and_validate}  # TODO: change the hotkey, maybe stop propogation
+    hotkeys = {'<f4>': main_thread}  # TODO: change the hotkey, maybe stop propogation
     with keyboard.GlobalHotKeys(hotkeys) as h:
         try:
             h.join()

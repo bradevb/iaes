@@ -4,6 +4,17 @@ import pandas as pd
 
 
 @dataclass
+class Cell:
+    """holds each cell's image, coords, row index, column name, bool for if the cell contains text, and text"""
+    image: list = None
+    # coords: list = None
+    row_idx: int = None
+    col_name: str = None
+    text: str = None
+    pass
+
+
+@dataclass
 class Row:
     to_date: str = None
     to_amount: str = None
