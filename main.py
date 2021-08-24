@@ -2,6 +2,7 @@ import concurrent.futures
 import tempfile
 import threading
 import os
+import queue
 
 import numpy as np
 import pytesseract
@@ -313,22 +314,33 @@ def parse_and_validate():
         return False  # This is to stop the hotkey listener
 
 
-def main_thread():
+def main_thread(q: queue.Queue, t: threading.Thread):
     # TODO: kill thread if a new keyboard event comes in
-    t = threading.Thread(target=parse_and_validate)
-    t.start()
+    while True:
+        q.get()
+
+        if t.is_alive():
+            print('thread is already running, waiting for it to finish.')
+            continue
+            # t.join(10)
+
+        t = threading.Thread(target=parse_and_validate)
+        t.start()
 
 
 def main():
     # Here, listen for hotkey, and run parse_and_validate when it's pressed. I'll do more in the future with hotkeys
     # and keypress listening, but for now, this works.
+    main_q = queue.Queue()
+    parse_validate_dummy_thread = threading.Thread(target=parse_and_validate)
+    threading.Thread(target=main_thread, args=(main_q, parse_validate_dummy_thread)).start()
 
     # TODO: make sure that hotkeys are ALWAYS listened for.
     # TODO: Consider making a queue that handles events. That way, I can cancel any parsing that's currenlty
     #  happening if the user wants to cancel it.
     print('Waiting for hotkey...')
     print('Make sure there is a blank cell selected when you press the hotkey.')
-    hotkeys = {'<alt>' if DEV else 'f4': main_thread}  # TODO: change the hotkey, maybe stop propogation
+    hotkeys = {'<alt>' if DEV else 'f4': lambda: main_q.put(True)}  # TODO: change the hotkey, maybe stop propogation
     with keyboard.GlobalHotKeys(hotkeys) as h:
         try:
             h.join()
