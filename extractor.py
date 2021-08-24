@@ -167,20 +167,27 @@ class CellExtractor(Extractor):
         img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(detect_horizontal) |
                                                   image_utils.fix_as_binary(detect_vertical))
 
-        contours = cv.findContours(img_bin_final, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        contours = cv.findContours(img_bin_final, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if len(contours) == 2 else contours[1]
 
         cell_images = []
         cell_coords = []
 
+        blue_low = (109, 164, 223)
+        blue_high = (109, 166, 226)
+
         for c in contours:
             x, y, w, h = cv.boundingRect(c)
+            cell = self._image[y:y + h, x:x + w]
+
             cell_area = w * h
 
-            if cell_area < 100:  # Skip any contours that are just noise
+            mask = image_utils.get_color_mask(cell, blue_low, blue_high)
+            blue_in_cell = cv.countNonZero(mask)
+
+            if cell_area < 100 or blue_in_cell:  # Skip any contours that are just noise, and the selected cell
                 continue
 
-            cell = self._image[y:y + h, x:x + w]
             cell_images.append(cell)
             cell_coords.append((x, y, w, h))
 

@@ -273,8 +273,6 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     # get_form_bounds(captiva_form, top_form_coords)
     # get_form_bounds(captiva_form, bot_form_coords)
 
-    if len(cells) != 3:
-        raise RuntimeError("Couldn't find top and bottom forms.")
     if len(top_form_coords) != 7:
         raise RuntimeError("Couldn't properly read top form.")
     if len(bot_form_coords) % 5 != 0:
