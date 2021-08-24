@@ -2,7 +2,6 @@ import concurrent.futures
 import tempfile
 import threading
 import os
-import queue
 
 import numpy as np
 import pytesseract
@@ -198,7 +197,11 @@ def parse_cell(cell: Cell, scale=3):
     return cell
 
 
-def build_table(form_images, col_names):
+class StopThread(Exception):
+    pass
+
+
+def build_table(form_images, col_names, stop: threading.Event):
     """col_names is a list of expected column names."""
     table = []
     rows = chunks(form_images, len(col_names))
@@ -218,12 +221,18 @@ def build_table(form_images, col_names):
     # and are therefore similar to an IO bound task.
     futures = []
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as executor:
         for cell in cells:
+            if stop.is_set():
+                raise StopThread
+
             futures.append(executor.submit(parse_cell, cell))
 
         with tqdm(futures) as pbar:
             for f in concurrent.futures.as_completed(futures):
+                if stop.is_set():
+                    raise StopThread
+
                 cell = f.result()
                 table[cell.row_idx][cell.col_name] = cell.text
                 pbar.update()
@@ -243,7 +252,7 @@ def get_form_bounds(img, cell_group):
 
 # TODO: when sorting cells, fix the bug where the selected cell (which is bigger than the others) gets put in the
 #  wrong place
-def parse_and_validate():
+def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     if DEV:
         image = _cap_rem(APP_NAME, WINDOW_NAME)
     else:
@@ -258,7 +267,7 @@ def parse_and_validate():
     groups = cell_ext.group_cells(75, 30)
     cells = sorted(groups, key=len, reverse=True)
     top_form_coords, bot_form_coords = cells[2], cells[0]
-    # TODO: get entire bounding box of each form, and check for presence of red pixels in them. If red cells are
+    # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.
     # get_form_bounds(captiva_form, top_form_coords)
@@ -277,8 +286,12 @@ def parse_and_validate():
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
 
-    top_table = TopForm(build_table(top_form_images, TOP_COL_NAMES), validators=TOP_VALIDATORS)
-    bot_table = BottomForm(build_table(bot_form_images, BOT_COL_NAMES), validators=BOTTOM_VALIDATORS)
+    try:
+        top_table = TopForm(build_table(top_form_images, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
+        bot_table = BottomForm(build_table(bot_form_images, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
+    except StopThread:
+        return
+
     top_bot_table = TopBottomForm(top_table, bot_table, validators=TOP_BOTTOM_VALIDATORS)
 
     try:
@@ -288,12 +301,8 @@ def parse_and_validate():
         print(f'{Fore.RED}VALIDATION ERROR:')
         print(f'{Fore.RED}{e}')
         print()
-        #     TODO: maybe put something here that begins to listen for any keyboard and/or mouse events. When those
-        #      events happen, run this function again. Do this recursively maybe, until the validator passes. Once the
-        #      validator passes, find the way to remove keyboard and mouse listeners, and do that.
-        # with keyboard.Events() as events:
-        #     event = events.get()  # Block until a key is pressed
-        #     parse_and_validate()
+
+        val_failed.set()
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
@@ -311,42 +320,54 @@ def parse_and_validate():
         # TODO: Put a print here that checks the descriptions and prints them in red if they don't match expected
         #  descriptions. For County Property Tax(es), put them in yellow so that the user knows they're in the
         #  dictionary, but need to be checked just in case.
-        return False  # This is to stop the hotkey listener
+        val_failed.clear()  # This is to stop the hotkey listener
 
 
-def main_thread(q: queue.Queue, t: threading.Thread):
-    # TODO: kill thread if a new keyboard event comes in
+def main_thread(stop: threading.Event, val_failed: threading.Event):
+    t = threading.Thread()
     while True:
-        q.get()
+        stop.wait()
 
         if t.is_alive():
             print('thread is already running, waiting for it to finish.')
-            continue
-            # t.join(10)
+            stop.set()
+            t.join(10)
 
-        t = threading.Thread(target=parse_and_validate)
+        stop.clear()
+        t = threading.Thread(target=parse_and_validate, args=(stop, val_failed))
         t.start()
 
 
 def main():
-    # Here, listen for hotkey, and run parse_and_validate when it's pressed. I'll do more in the future with hotkeys
-    # and keypress listening, but for now, this works.
-    main_q = queue.Queue()
-    parse_validate_dummy_thread = threading.Thread(target=parse_and_validate)
-    threading.Thread(target=main_thread, args=(main_q, parse_validate_dummy_thread)).start()
+    stop = threading.Event()
+    val_failed = threading.Event()
+    threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
 
-    # TODO: make sure that hotkeys are ALWAYS listened for.
-    # TODO: Consider making a queue that handles events. That way, I can cancel any parsing that's currenlty
-    #  happening if the user wants to cancel it.
     print('Waiting for hotkey...')
     print('Make sure there is a blank cell selected when you press the hotkey.')
-    hotkeys = {'<alt>' if DEV else 'f4': lambda: main_q.put(True)}  # TODO: change the hotkey, maybe stop propogation
-    with keyboard.GlobalHotKeys(hotkeys) as h:
-        try:
-            h.join()
-        except Exception as e:
-            print(e)
-    # parse_and_validate()
+
+    # TODO: add a cancel hotkey that, when pushed, runs val_failed.clear()
+
+    def on_hotkey():
+        val_failed.clear()
+        stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
+
+    def on_any_press(key):
+        canon = listener.canonical(key)
+        hotkey.press(canon)
+
+    def on_any_release(key):
+        canon = listener.canonical(key)
+        hotkey.release(canon)
+
+        if val_failed.is_set():
+            stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
+
+    hotkey_combo = keyboard.HotKey.parse('<alt>' if DEV else '<f4>')
+    hotkey = keyboard.HotKey(hotkey_combo, on_hotkey)
+
+    with keyboard.Listener(on_press=on_any_press, on_release=on_any_release) as listener:
+        listener.join()
 
 
 if __name__ == '__main__':
