@@ -34,8 +34,11 @@ TOP_COL_NAMES = ['proj_start_date',
                  'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
 
+# HSV values used to replace colors throughout the application
 TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
+ORANGE_LOW = (12, 190, 206)
+ORANGE_HIGH = (179, 255, 255)
 
 
 class RemoteDesktop:
@@ -110,12 +113,10 @@ def get_captiva_form(img):
 
 
 def get_cell_ext(img):
-    orange_low = (12, 208, 216)
-    orange_high = (92, 255, 255)
     replacement = (255, 255, 255)
 
     preprocessors = [
-        lambda i: image_utils.replace_color(i, orange_low, orange_high, replacement),
+        lambda i: image_utils.replace_color(i, ORANGE_LOW, ORANGE_HIGH, replacement),
         lambda i: processors.convert_gray(i),
         lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
     ]
