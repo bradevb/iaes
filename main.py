@@ -178,13 +178,32 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
+def remove_cursor(cell_img):
+    img = cell_img.copy()
+    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img = cv.threshold(img, 210, 255, cv.THRESH_BINARY)[1]
+
+    cursor_height = 11
+    cursor_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, cursor_height))
+    cursor_mask = cv.morphologyEx(img, cv.MORPH_CLOSE, cursor_kernel, iterations=1)
+
+    if cv.countNonZero(~cursor_mask):  # Invert mask to check if a cursor was found
+        temp_cell = cell_img.copy()
+        temp_cell[cursor_mask == 0] = 255
+        return temp_cell
+
+    return cell_img
+
+
 def parse_cell(cell: Cell, scale=3):
     img = cell.image.copy()
+    img = remove_cursor(img)
 
     # Check if cell has text in it
     mask = image_utils.get_color_mask(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
     text_in_cell = cv.countNonZero(mask)
 
+    # NOTE: maybe make this check for number of nonzero instead of just if there are any
     if not text_in_cell:
         return cell
         # return None
@@ -251,8 +270,6 @@ def get_form_bounds(img, cell_group):
     image_utils.show_result(image)
 
 
-# TODO: when sorting cells, fix the bug where the selected cell (which is bigger than the others) gets put in the
-#  wrong place
 def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     if DEV:
         image = _cap_rem(APP_NAME, WINDOW_NAME)
