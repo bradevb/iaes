@@ -182,8 +182,7 @@ class CellExtractor(Extractor):
 
             cell_area = w * h
 
-            mask = image_utils.get_color_mask(cell, blue_low, blue_high)
-            blue_in_cell = cv.countNonZero(mask)
+            blue_in_cell = image_utils.check_color(cell, blue_low, blue_high)
 
             if cell_area < 100 or blue_in_cell:  # Skip any contours that are just noise, and the selected cell
                 continue

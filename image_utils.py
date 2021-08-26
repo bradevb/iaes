@@ -66,6 +66,11 @@ def get_color_mask(image, low_thresh, high_thresh):
     return mask
 
 
+def check_color(image, low_thresh, high_thresh):
+    mask = get_color_mask(image, low_thresh, high_thresh)
+    return bool(cv.countNonZero(mask))
+
+
 def replace_color(image, low_thresh, high_thresh, replacement_color):
     mask = get_color_mask(image, low_thresh, high_thresh)
     image[mask > 0] = replacement_color

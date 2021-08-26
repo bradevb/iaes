@@ -199,14 +199,10 @@ def parse_cell(cell: Cell, scale=3):
     img = cell.image.copy()
     img = remove_cursor(img)
 
-    # Check if cell has text in it
-    mask = image_utils.get_color_mask(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
-    text_in_cell = cv.countNonZero(mask)
-
     # NOTE: maybe make this check for number of nonzero instead of just if there are any
-    if not text_in_cell:
+    if not image_utils.check_color(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
         return cell
-        # return None
+
     # TODO: find a way to remove the cursor from a cell if it's there. An easy way to do this might be to just erode
     #  the contents of the cell, and then check the cell for text color (since the text is thicker than the cursor,
     #  there should be some remnants of text color left)
