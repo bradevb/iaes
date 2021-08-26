@@ -46,7 +46,11 @@ def ensure_from_cols_cells(dataframe):
 
 
 def ensure_no_blank_months(df):
-    trimmed_df = _trim_trailing_rows(df)
+    try:
+        trimmed_df = _trim_trailing_rows(df)
+    except IndexError:
+        raise ValueError('There is a problem with the months. Please double check the form.')
+
     trimmed_df = trimmed_df.values
 
     for row, month in enumerate(trimmed_df):

@@ -363,7 +363,6 @@ def main_thread(stop: threading.Event, val_failed: threading.Event):
         stop.wait()
 
         if t.is_alive():
-            print('thread is already running, waiting for it to finish.')
             stop.set()
             t.join(10)
 
