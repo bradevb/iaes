@@ -308,8 +308,10 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     # get_form_bounds(captiva_form, bot_form_coords)
 
     if len(top_form_coords) != 7:
+        val_failed.clear()
         raise RuntimeError("Couldn't properly read top form.")
     if len(bot_form_coords) % 5 != 0:
+        val_failed.clear()
         raise RuntimeError("Couldn't properly read bottom form.")
 
     top_form_coords = sorted(cells[2], key=lambda c: (c[1], c[0]))
