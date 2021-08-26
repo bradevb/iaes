@@ -34,7 +34,7 @@ TOP_COL_NAMES = ['proj_start_date',
                  'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
 
-# HSV values used to replace colors throughout the application
+# HSV values used to replace/detect colors throughout the application
 TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
@@ -178,24 +178,47 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def remove_cursor(cell_img):
-    img = cell_img.copy()
-    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    img = cv.threshold(img, 210, 255, cv.THRESH_BINARY)[1]
-
-    cursor_height = 11
-    cursor_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, cursor_height))
-    cursor_mask = cv.morphologyEx(img, cv.MORPH_CLOSE, cursor_kernel, iterations=1)
-
-    if cv.countNonZero(~cursor_mask):  # Invert mask to check if a cursor was found
-        temp_cell = cell_img.copy()
-        temp_cell[cursor_mask == 0] = 255
-        return temp_cell
-
-    return cell_img
-
-
 def parse_cell(cell: Cell, scale=3):
+    def remove_cursor(cell_img):
+        """Finds and removes cursors from any cell by finding lines that are long enough to be the cursor,
+        and writing over them."""
+        temp_img = cell_img.copy()
+        temp_img = cv.cvtColor(temp_img, cv.COLOR_BGR2GRAY)
+        temp_img = cv.threshold(temp_img, 210, 255, cv.THRESH_BINARY)[1]
+
+        cursor_height = 11
+        cursor_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, cursor_height))
+
+        # Get mask and invert it with ~ so that cursor's position/pixels are now white
+        cursor_mask = ~cv.morphologyEx(temp_img, cv.MORPH_CLOSE, cursor_kernel, iterations=1)
+        c_mask_count = cv.countNonZero(cursor_mask)
+
+        # Check if cell has a lot of cursor pixels. If it has over 50, this cell is more than likely a selected cell,
+        # and therefore needs special processing
+        if c_mask_count > 50:
+            temp_img = process_selected(cell_img)
+            return temp_img
+
+        # Otherwise, just check if there ARE cursor pixels
+        if c_mask_count:
+            temp_cell = cell_img.copy()
+            temp_cell[cursor_mask == 255] = 255
+            return temp_cell
+
+        return cell_img
+
+    def process_selected(cell_img):
+        """Special care needs to be taken for the selected cell. This processing is done to get the best results from
+        tesseract. """
+        temp_img = cell_img.copy()
+
+        temp_img = ~image_utils.get_color_mask(temp_img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
+        temp_img = cv.cvtColor(temp_img, cv.COLOR_GRAY2BGR)
+        temp_img = cv.resize(temp_img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
+        temp_img = cv.GaussianBlur(temp_img, (7, 7), 0)
+
+        return temp_img
+
     img = cell.image.copy()
     img = remove_cursor(img)
 
@@ -203,9 +226,6 @@ def parse_cell(cell: Cell, scale=3):
     if not image_utils.check_color(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
         return cell
 
-    # TODO: find a way to remove the cursor from a cell if it's there. An easy way to do this might be to just erode
-    #  the contents of the cell, and then check the cell for text color (since the text is thicker than the cursor,
-    #  there should be some remnants of text color left)
     img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
 
     text = pytesseract.image_to_string(img, config='--psm 6')
