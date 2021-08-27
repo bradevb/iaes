@@ -25,10 +25,10 @@ def ensure_min_date_eq_bottom(top_df, bot_df):
     min_idx = balance.balance.idxmin()
     bot_min_date, bot_min_bal = balance.iloc[min_idx]
 
-    if proj_min_date != bot_min_date:
-        raise ValueError(f"Projected min date {proj_min_date} and table min date {bot_min_date} don't match.")
     if proj_min_bal != bot_min_bal:
         raise ValueError(f"Projected min balance {proj_min_bal} and table min balance {bot_min_bal} don't match.")
+    if proj_min_date != bot_min_date:
+        raise ValueError(f"Projected min date {proj_min_date} and table min date {bot_min_date} don't match.")
 
 
 def ensure_escrow_pay_eq_bottom(top_df, bot_df):
