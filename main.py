@@ -97,20 +97,18 @@ def _cap_rem(app_name, window_name):
         return image_utils.load_image(temp_image.name)
 
 
-def get_form_ext(img):
-    preprocessors = [
-        lambda i: processors.convert_gray(i),
-        lambda i: processors.gaussian_blur(i),
-        lambda i: processors.thresh(i)
-    ]
-
-    return FormExtractor(img, preprocessors)
-
-
 def get_captiva_form(img):
-    form_ext = get_form_ext(img)
-    forms = form_ext.get_images()
-    for f in forms:
+    def _get_form_ext(form_img):
+        preprocessors = [
+            lambda i: processors.convert_gray(i),
+            lambda i: processors.gaussian_blur(i),
+            lambda i: processors.thresh(i)
+        ]
+
+        return FormExtractor(form_img, preprocessors)
+
+    form_ext = _get_form_ext(img)
+    for f in form_ext.get_images():
         if image_utils.check_color(f, SELECTION_LOW, SELECTION_HIGH):
             return f
 
@@ -300,6 +298,10 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     print('Parsing and validating forms...')
 
     captiva_form = get_captiva_form(image)
+    if captiva_form is None:
+        val_failed.clear()
+        raise RuntimeError("Couldn't find IAES form. Please ensure Captiva is pulled up and an IAES form is on screen.")
+
     cell_ext = get_cell_ext(captiva_form)
 
     groups = cell_ext.group_cells(75, 30)
