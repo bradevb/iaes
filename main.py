@@ -39,6 +39,8 @@ TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
+SELECTION_LOW = (109, 164, 223)
+SELECTION_HIGH = (109, 166, 226)
 
 
 class RemoteDesktop:
@@ -107,9 +109,10 @@ def get_form_ext(img):
 
 def get_captiva_form(img):
     form_ext = get_form_ext(img)
-    form_ext.sort_forms()
     forms = form_ext.get_images()
-    return forms[0]
+    for f in forms:
+        if image_utils.check_color(f, SELECTION_LOW, SELECTION_HIGH):
+            return f
 
 
 def get_cell_ext(img):
@@ -299,13 +302,12 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
     cell_ext = get_cell_ext(captiva_form)
 
     groups = cell_ext.group_cells(75, 30)
-    cells = sorted(groups, key=len, reverse=True)
-    top_form_coords, bot_form_coords = cells[2], cells[0]
+    cells = sorted(groups, key=len)
+    top_form_coords, bot_form_coords = cells[0], cells[1]
+    # top_form_coords, bot_form_coords = cells[2], cells[0]
     # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.
-    # get_form_bounds(captiva_form, top_form_coords)
-    # get_form_bounds(captiva_form, bot_form_coords)
 
     if len(top_form_coords) != 7:
         val_failed.clear()
@@ -314,8 +316,8 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
         val_failed.clear()
         raise RuntimeError("Couldn't properly read bottom form.")
 
-    top_form_coords = sorted(cells[2], key=lambda c: (c[1], c[0]))
-    bot_form_coords = sorted(cells[0], key=lambda c: (c[1], c[0]))
+    top_form_coords = sorted(top_form_coords, key=lambda c: (c[1], c[0]))
+    bot_form_coords = sorted(bot_form_coords, key=lambda c: (c[1], c[0]))
 
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
