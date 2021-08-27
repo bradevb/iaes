@@ -120,6 +120,7 @@ def get_cell_ext(img):
 
     preprocessors = [
         lambda i: image_utils.replace_color(i, ORANGE_LOW, ORANGE_HIGH, replacement),
+        lambda i: processors.draw_over_unwanted_areas(i),
         lambda i: processors.convert_gray(i),
         lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
     ]

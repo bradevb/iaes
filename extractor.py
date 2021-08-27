@@ -24,7 +24,7 @@ class Extractor:
         pass
 
     def _apply_preprocessors(self):
-        processed = self._image
+        processed = self._image.copy()
         for preprocessor in self._preprocessors:
             processed = preprocessor(processed)
         return processed
@@ -167,24 +167,18 @@ class CellExtractor(Extractor):
         img_bin_final = image_utils.fix_as_binary(image_utils.fix_as_binary(detect_horizontal) |
                                                   image_utils.fix_as_binary(detect_vertical))
 
-        contours = cv.findContours(img_bin_final, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if len(contours) == 2 else contours[1]
+        contours, hierarchy = cv.findContours(img_bin_final, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
+        contours = [contours[i] for i in range(len(contours)) if hierarchy[0][i][3] >= 0]
 
         cell_images = []
         cell_coords = []
-
-        blue_low = (109, 164, 223)
-        blue_high = (109, 166, 226)
 
         for c in contours:
             x, y, w, h = cv.boundingRect(c)
             cell = self._image[y:y + h, x:x + w]
 
             cell_area = w * h
-
-            blue_in_cell = image_utils.check_color(cell, blue_low, blue_high)
-
-            if cell_area < 100 or blue_in_cell:  # Skip any contours that are just noise, and the selected cell
+            if cell_area < 100:  # Skip unwanted contours
                 continue
 
             cell_images.append(cell)

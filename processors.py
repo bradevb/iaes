@@ -1,5 +1,4 @@
 import cv2 as cv
-import numpy as np
 
 import image_utils
 
@@ -23,3 +22,17 @@ def thresh(image, thresh1=230, thresh2=235, thresh_type=cv.THRESH_BINARY_INV, ou
     if output_process:
         image_utils.show_result(threshold)
     return threshold
+
+
+def draw_over_unwanted_areas(image):
+    img = image.copy()
+    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img = cv.threshold(img, 50, 255, cv.THRESH_BINARY_INV)[1]
+
+    contours, hierarchy = cv.findContours(img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        x, y, w, h = cv.boundingRect(c)
+        if w >= 25 and h >= 15:
+            cv.rectangle(image, (x, y), (x + w, y + h), (255, 255, 255), -1)
+
+    return image
