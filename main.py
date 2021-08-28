@@ -19,6 +19,9 @@ from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 ENV = os.getenv('ENV')
+IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')
+IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVERRIDE
+IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
 DEV = ENV == 'DEV'
 
 # These are both temporary for testing. In prod, load them in from config
@@ -288,9 +291,9 @@ def get_form_bounds(img, cell_group):
     image_utils.show_result(image)
 
 
-def parse_and_validate(stop: threading.Event, val_failed: threading.Event):
+def parse_and_validate(stop: threading.Event, val_failed: threading.Event, image=None):
     if DEV:
-        image = _cap_rem(APP_NAME, WINDOW_NAME)
+        image = image_utils.load_image(image)
     else:
         rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
         image = rdp.screenshot_remote()
@@ -379,6 +382,22 @@ def main_thread(stop: threading.Event, val_failed: threading.Event):
 def main():
     stop = threading.Event()
     val_failed = threading.Event()
+
+    if DEV:
+        base_path = './tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
+
+        if IMG_OVERRIDE is not None:
+            for image_num in IMG_OVERRIDE:
+                image = image_utils.load_image(f'{base_path}/{image_num}')
+                parse_and_validate(stop, val_failed, image)
+            exit()
+
+        for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
+            image = image_utils.load_image(f'{base_path}/{image_num}')
+            image_utils.show_result(image, 1)
+            parse_and_validate(stop, val_failed, image)
+        exit()
+
     threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
 
     print('Waiting for hotkey...')
