@@ -1,4 +1,5 @@
 import concurrent.futures
+import shutil
 import tempfile
 import threading
 import os
@@ -10,6 +11,7 @@ from pynput import keyboard
 from tqdm import tqdm
 
 import image_utils
+import cspace
 import processors
 import cv2 as cv
 from screenshot import screencapture, get_window_id
@@ -37,6 +39,9 @@ TOP_COL_NAMES = ['proj_start_date',
                  'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
 
+# For converting screenshots to the right color space
+CSPACE_PATH = './icc/IAES_COLOR_PROFILE.icc'
+
 # HSV values used to replace/detect colors throughout the application
 TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
@@ -47,9 +52,10 @@ SELECTION_HIGH = (109, 166, 226)
 
 
 class RemoteDesktop:
-    def __init__(self, app_name, window_name):
+    def __init__(self, app_name, window_name, cspace_path=None):
         self.window_name = window_name
         self.app_name = app_name
+        self.cspace_path = cspace_path
         self.has_run = False
         self.win_id = None
         self._windows = None
@@ -60,6 +66,9 @@ class RemoteDesktop:
         with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
             screencapture.screenshot_window(self.app_name, title=self.window_name, filename=temp_image.name,
                                             window_selection_options='on_screen_only')
+
+            # Set screenshot's colorspace
+            cspace.set_cspace(temp_image.name, self.cspace_path)
 
             return image_utils.load_image(temp_image.name)
 
@@ -93,10 +102,14 @@ class RemoteDesktop:
         self._windows = list(get_window_id.gen_window_ids(self.app_name, self.window_name, options='on_screen_only'))
 
 
-def _cap_rem(app_name, window_name):
-    """Captures remote even when the remote window is in the background. Only for dev and testing purposes."""
+def _dev_cap_rem(img_path, cspace_path):
+    """Simulates taking a screenshot of remote. Takes a pre-saved screenshot's path."""
     with tempfile.NamedTemporaryFile(suffix='.png') as temp_image:
-        screencapture.screenshot_window(app_name, title=window_name, filename=temp_image.name)
+        shutil.copy2(img_path, temp_image.name)
+
+        # Set screenshot's colorspace
+        cspace.set_cspace(temp_image.name, cspace_path)
+
         return image_utils.load_image(temp_image.name)
 
 
@@ -291,14 +304,19 @@ def get_form_bounds(img, cell_group):
     image_utils.show_result(image)
 
 
-def parse_and_validate(stop: threading.Event, val_failed: threading.Event, image=None):
+def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
+    print('Parsing and validating forms...')
+
     if DEV:
-        image = image_utils.load_image(image)
+        if not dev_image_path:
+            raise RuntimeError('Image path must be passed in order to run in DEV!')
+        image = _dev_cap_rem(dev_image_path, CSPACE_PATH)
     else:
-        rdp = RemoteDesktop(APP_NAME, WINDOW_NAME)
+        rdp = RemoteDesktop(APP_NAME, WINDOW_NAME, CSPACE_PATH)
         image = rdp.screenshot_remote()
 
-    print('Parsing and validating forms...')
+    if stop.is_set():
+        return
 
     captiva_form = get_captiva_form(image)
     if captiva_form is None:
@@ -388,14 +406,11 @@ def main():
 
         if IMG_OVERRIDE is not None:
             for image_num in IMG_OVERRIDE:
-                image = image_utils.load_image(f'{base_path}/{image_num}')
-                parse_and_validate(stop, val_failed, image)
+                parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
             exit()
 
         for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
-            image = image_utils.load_image(f'{base_path}/{image_num}')
-            image_utils.show_result(image, 1)
-            parse_and_validate(stop, val_failed, image)
+            parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
         exit()
 
     threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
