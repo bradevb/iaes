@@ -47,8 +47,8 @@ TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
-SELECTION_LOW = (109, 164, 223)
-SELECTION_HIGH = (109, 166, 226)
+SELECTION_LOW = (97, 158, 195)
+SELECTION_HIGH = (112, 177, 255)
 
 
 class RemoteDesktop:
@@ -123,9 +123,24 @@ def get_captiva_form(img):
 
         return FormExtractor(form_img, preprocessors)
 
+    def _good_form_check(form_img):
+        mask = image_utils.get_color_mask(form_img, SELECTION_LOW, SELECTION_HIGH)
+        if not np.any(mask):
+            return
+
+        blue_contours, _ = cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        good_contours = []
+
+        for c in blue_contours:
+            _, _, w, h = cv.boundingRect(c)
+            if w * h > 40:
+                good_contours.append(c)
+
+        return len(good_contours) == 1
+
     form_ext = _get_form_ext(img)
     for f in form_ext.get_images():
-        if image_utils.check_color(f, SELECTION_LOW, SELECTION_HIGH):
+        if _good_form_check(f):
             return f
 
 
@@ -321,7 +336,9 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
     captiva_form = get_captiva_form(image)
     if captiva_form is None:
         val_failed.clear()
-        raise RuntimeError("Couldn't find IAES form. Please ensure Captiva is pulled up and an IAES form is on screen.")
+        raise RuntimeError("Couldn't find IAES form. Please ensure Captiva is pulled up and an IAES form is on "
+                           "screen.\nIf this error continues to occur, please try moving the window containing the "
+                           "IAES document.")
 
     cell_ext = get_cell_ext(captiva_form)
 
@@ -407,11 +424,11 @@ def main():
         if IMG_OVERRIDE is not None:
             for image_num in IMG_OVERRIDE:
                 parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
-            exit()
+            return
 
         for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
             parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
-        exit()
+        return
 
     threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
 
