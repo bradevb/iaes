@@ -1,9 +1,18 @@
+"""
+PLEASE NOTE: EVERYTHING IN THIS MODULE IS GOING TO BE REIMPLEMENTED IN THE FUTURE. MOST, IF NOT ALL OF IT IS GOING TO
+CHANGE.
+
+It is not in a very flexible state at the moment, but works well for the IAES forms, which is what matters most right
+now. In the future, I plan to make it more modular and generic.
+"""
+
 import cv2 as cv
 import imutils
 import imutils.contours
 import numpy as np
 
 import image_utils
+from form.iaes_forms import Cell
 
 
 class Extractor:
@@ -143,15 +152,11 @@ class CellExtractor(Extractor):
     3. cv.threshold(gray_scale_image, 200, 225, cv.THRESH_BINARY)
     """
 
-    def __init__(self, img_or_path, preprocessors, line_width=1, line_min_len=20, dilation_factor=None,
-                 output_process=False):
-        self.line_width = line_width
-        self.line_min_len = line_min_len
-        self.dilation_factor = dilation_factor
-        self._cell_coords = None
+    def __init__(self, img_or_path, preprocessors, output_process=False):
+        self.cells = []
         super().__init__(img_or_path, preprocessors, output_process)
 
-    def _extract(self):
+    def extract(self):
         processed_copy = self._processed.copy()
 
         # Detect horizontal lines
@@ -170,58 +175,48 @@ class CellExtractor(Extractor):
         contours, hierarchy = cv.findContours(img_bin_final, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
         contours = [contours[i] for i in range(len(contours)) if hierarchy[0][i][3] >= 0]
 
-        cell_images = []
-        cell_coords = []
+        self.cells = []
 
         for c in contours:
             x, y, w, h = cv.boundingRect(c)
-            cell = self._image[y:y + h, x:x + w]
+            cell_img = self._image[y:y + h, x:x + w]
 
             cell_area = w * h
             if cell_area < 100:  # Skip unwanted contours
                 continue
 
-            cell_images.append(cell)
-            cell_coords.append((x, y, w, h))
+            cell = Cell(image=cell_img, coords=(x, y, w, h))
+            self.cells.append(cell)
 
         if self.output_process:
             debug_image = self._image.copy()
-            for x, y, w, h in cell_coords:
+            for cell in self.cells:
+                x, y, w, h = cell.coords
                 cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
             image_utils.show_result(debug_image)
 
-        self._cell_coords = cell_coords
-
     def group_cells(self, dist_x, dist_y=None):
+        if not self.cells:
+            raise RuntimeError('Must run extract before grouping cells.')
+
         if dist_y is None:
             dist_y = dist_x
 
-        list_of_rects = sorted(self._cell_coords.copy())
+        list_of_rects = sorted(self.cells, key=lambda c: c.coords)
 
         groups = []
-        for rect in list_of_rects:
+        for rect_cell in list_of_rects:
+            rect = rect_cell.coords
             neighbors = []
 
             # Compare each cell with rect to see if it's a neighbor
-            for neighbor in list_of_rects:
+            for neighbor_cell in list_of_rects:
+                neighbor = neighbor_cell.coords
                 within_dist = _check_rect_proximity(rect, neighbor, dist_x, dist_y)
                 if within_dist:
-                    neighbors.append(neighbor)
+                    neighbors.append(neighbor_cell)
 
             groups.append(neighbors)
 
         merged_groups = _merge_lists(groups)
         return merged_groups
-
-    def _generate_cell_images(self):
-        cell_images = []
-        for x, y, w, h in self._cell_coords:
-            cell_images.append(self._image[y:y + h, x:x + w])
-        return cell_images
-
-    # SPLIT THIS UP INTO A PRIVATE METHOD SO THAT I CAN GET CELL IMAGES WITHIN HERE
-    def get_images(self):
-        return self._generate_cell_images()
-
-    def get_coords(self):
-        return self._cell_coords

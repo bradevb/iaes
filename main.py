@@ -144,17 +144,25 @@ def get_captiva_form(img):
             return f
 
 
-def get_cell_ext(img):
-    replacement = (255, 255, 255)
+def get_cells(img) -> list:
+    def get_cell_ext(form_img):
+        replacement = (255, 255, 255)
 
-    preprocessors = [
-        lambda i: image_utils.replace_color(i, ORANGE_LOW, ORANGE_HIGH, replacement),
-        lambda i: processors.draw_over_unwanted_areas(i),
-        lambda i: processors.convert_gray(i),
-        lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
-    ]
+        preprocessors = [
+            lambda i: image_utils.replace_color(i, ORANGE_LOW, ORANGE_HIGH, replacement),
+            lambda i: processors.draw_over_unwanted_areas(i),
+            lambda i: processors.convert_gray(i),
+            lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
+        ]
 
-    return CellExtractor(img, preprocessors, line_width=1, line_min_len=15)
+        return CellExtractor(form_img, preprocessors)
+
+    cell_ext = get_cell_ext(img)
+    cell_ext.extract()
+    groups = cell_ext.group_cells(75, 30)
+    # Sort groups by descending y
+    groups.sort(key=min)
+    return groups
 
 
 def get_top_form(cells, img):
@@ -282,7 +290,7 @@ def build_table(form_images, col_names, stop: threading.Event):
 
         for cell_img, name in zip(r, col_names):
             row[name] = None
-            cells.append(Cell(cell_img, row_idx, name))
+            cells.append(Cell(image=cell_img, row_idx=row_idx, col_name=name))
 
         table.append(row)
 
@@ -340,12 +348,17 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
                            "screen.\nIf this error continues to occur, please try moving the window containing the "
                            "IAES document.")
 
-    cell_ext = get_cell_ext(captiva_form)
+    cells = get_cells(captiva_form)
 
-    groups = cell_ext.group_cells(75, 30)
-    cells = sorted(groups, key=len)
-    top_form_coords, bot_form_coords = cells[0], cells[1]
-    # top_form_coords, bot_form_coords = cells[2], cells[0]
+    if len(cells) != 2:
+        raise RuntimeError('Unable to properly read form. Please ensure that both the top and bottom forms are '
+                           'completely in view, and that there is nothing blocking either of them.\nAlso ensure that '
+                           'the currently selected cell is in view.')
+
+    top_form, bot_form = cells
+    top_form_coords = [c.coords for c in top_form]
+    bot_form_coords = [c.coords for c in bot_form]
+
     # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.

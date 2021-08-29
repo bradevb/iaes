@@ -5,13 +5,21 @@ import pandas as pd
 
 @dataclass
 class Cell:
-    """holds each cell's image, coords, row index, column name, bool for if the cell contains text, and text"""
+    """Holds each cell's image, coords, row index, column name, bool for if the cell contains text, and text. Pass
+    sort_by to change how the cells will be sorted (pass 0 to sort by x, 1 to sort by y)."""
     image: list = None
-    # coords: list = None
+    coords: tuple = None
     row_idx: int = None
     col_name: str = None
     text: str = None
-    pass
+    sort_by: int = 1
+
+    def __hash__(self):
+        """Manually implement __hash__ for use in a set when grouping cells."""
+        return hash(self.coords)
+
+    def __lt__(self, other):
+        return self.coords[self.sort_by] < other.coords[self.sort_by]
 
 
 @dataclass

@@ -89,9 +89,10 @@ def pad_match_concat(big_img, small_img, axis=1):
     return np.concatenate([big_img, padded], axis=axis)
 
 
-def show_cell_groups(img, cells):
-    for g in cells:
+def show_cell_groups(img, cell_groups):
+    for group in cell_groups:
         tmp = img.copy()
-        for x, y, w, h in g:
+        for c in group:
+            x, y, w, h = c.coords
             cv.rectangle(tmp, (x, y), (x + w, y + h), (255, 0, 0), 2)
         show_result(tmp)
