@@ -160,8 +160,12 @@ def get_cells(img) -> list:
     cell_ext = get_cell_ext(img)
     cell_ext.extract()
     groups = cell_ext.group_cells(75, 30)
+
+    # Sort individual groups into rows
+    groups = [sorted(g, key=lambda c: (c.coords[1], c.coords[0])) for g in groups]
     # Sort groups by descending y
     groups.sort(key=min)
+
     return groups
 
 
@@ -349,6 +353,9 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
                            "IAES document.")
 
     cells = get_cells(captiva_form)
+    # TODO: Check for presence of red pixels in entire captiva form. If red cells are
+    #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
+    #  to an empty one.
 
     if len(cells) != 2:
         raise RuntimeError('Unable to properly read form. Please ensure that both the top and bottom forms are '
@@ -359,19 +366,12 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
     top_form_coords = [c.coords for c in top_form]
     bot_form_coords = [c.coords for c in bot_form]
 
-    # TODO: Check for presence of red pixels in entire captiva form. If red cells are
-    #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
-    #  to an empty one.
-
     if len(top_form_coords) != 7:
         val_failed.clear()
         raise RuntimeError("Couldn't properly read top form.")
     if len(bot_form_coords) % 5 != 0:
         val_failed.clear()
         raise RuntimeError("Couldn't properly read bottom form.")
-
-    top_form_coords = sorted(top_form_coords, key=lambda c: (c[1], c[0]))
-    bot_form_coords = sorted(bot_form_coords, key=lambda c: (c[1], c[0]))
 
     top_form_images = get_cell_images(captiva_form, top_form_coords)
     bot_form_images = get_cell_images(captiva_form, bot_form_coords)
