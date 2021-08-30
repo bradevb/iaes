@@ -282,19 +282,21 @@ class StopThread(Exception):
     pass
 
 
-def build_table(form_images, col_names, stop: threading.Event):
-    """col_names is a list of expected column names."""
+def build_table(cell_instances, col_names, stop: threading.Event):
+    """Takes a list of Cell instances and column names, and builds a table from them. Then, it passes all cells to be
+    parsed by Tesseract. Cell instances are modified in place with their new row indexes and column names."""
     table = []
-    rows = chunks(form_images, len(col_names))
+    rows = chunks(cell_instances, len(col_names))
 
     # Prepare the table and Cell list for OCR step
     cells = []
     for row_idx, r in enumerate(rows):
         row = {}
 
-        for cell_img, name in zip(r, col_names):
-            row[name] = None
-            cells.append(Cell(image=cell_img, row_idx=row_idx, col_name=name))
+        for c, name in zip(r, col_names):
+            row[name] = None  # Initialize a spot in table for this cell
+            c.row_idx, c.col_name = row_idx, name
+            cells.append(c)
 
         table.append(row)
 
@@ -363,22 +365,17 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
                            'the currently selected cell is in view.')
 
     top_form, bot_form = cells
-    top_form_coords = [c.coords for c in top_form]
-    bot_form_coords = [c.coords for c in bot_form]
 
-    if len(top_form_coords) != 7:
+    if len(top_form) != 7:
         val_failed.clear()
         raise RuntimeError("Couldn't properly read top form.")
-    if len(bot_form_coords) % 5 != 0:
+    if len(bot_form) % 5 != 0:
         val_failed.clear()
         raise RuntimeError("Couldn't properly read bottom form.")
 
-    top_form_images = get_cell_images(captiva_form, top_form_coords)
-    bot_form_images = get_cell_images(captiva_form, bot_form_coords)
-
     try:
-        top_table = TopForm(build_table(top_form_images, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
-        bot_table = BottomForm(build_table(bot_form_images, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
+        top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
+        bot_table = BottomForm(build_table(bot_form, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
     except StopThread:
         return
 
