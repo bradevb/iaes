@@ -283,6 +283,11 @@ class StopThread(Exception):
     pass
 
 
+def cancel_futures(futures):
+    for f in futures:
+        f.cancel()
+
+
 def build_table(cell_instances, col_names, stop: threading.Event):
     """Takes a list of Cell instances and column names, and builds a table from them. Then, it passes all cells to be
     parsed by Tesseract. Cell instances are modified in place with their new row indexes and column names."""
@@ -308,6 +313,7 @@ def build_table(cell_instances, col_names, stop: threading.Event):
     with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as executor:
         for cell in cells:
             if stop.is_set():
+                cancel_futures(futures)
                 raise StopThread
 
             futures.append(executor.submit(parse_cell, cell))
@@ -315,6 +321,7 @@ def build_table(cell_instances, col_names, stop: threading.Event):
         with tqdm(futures) as pbar:
             for f in concurrent.futures.as_completed(futures):
                 if stop.is_set():
+                    cancel_futures(futures)
                     raise StopThread
 
                 cell = f.result()
