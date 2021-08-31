@@ -25,6 +25,7 @@ ENV = os.getenv('ENV')
 IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')
 IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVERRIDE
 IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
+DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
 DEV = ENV == 'DEV'
 
 # These are both temporary for testing. In prod, load them in from config
@@ -341,7 +342,6 @@ def get_form_bounds(img, cell_group):
     image_utils.show_result(image)
 
 
-@threadpool
 def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
     print('Parsing and validating forms...')
 
@@ -419,36 +419,30 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
         val_failed.clear()  # This is to stop the hotkey listener
 
 
+@threadpool
+def threadpool_parse_validate(*args, **kwargs):
+    res = parse_and_validate(*args, **kwargs)
+    return res
+
+
 def main_thread(stop: threading.Event, val_failed: threading.Event):
-    global kp_time
-    # t = threading.Thread()
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
     while True:
+        try:
+            res = t.result()
+        except Exception as e:
+            print(f'error occurred\n{e}')
+
         stop.wait()
-        # stop.set()
-
-        # if t.is_alive():
-        #     stop.set()
-        #     t.join(10)
-        res = t.result()
-        print(f'main res: {res}')
-        print(f'time between keypresses: {time.time() - kp_time}')
-
         stop.clear()
-        t = parse_and_validate(stop, val_failed, './tests/images/11.png')
-        # t = threadpool(parse_and_validate)
-        # t = t(stop, val_failed, './tests/images/11.png')
-
-        # t = threading.Thread(target=parse_and_validate, args=(stop, val_failed, './tests/images/11.png'))
-        # t.start()
+        t = threadpool_parse_validate(stop, val_failed)
 
 
 def main():
-    global kp_time
     stop = threading.Event()
     val_failed = threading.Event()
 
-    if DEV and False:
+    if DEV and not DEV_HOTKEYS:
         base_path = './tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
 
         if IMG_OVERRIDE is not None:
@@ -468,21 +462,16 @@ def main():
     # TODO: add a cancel hotkey that, when pushed, runs val_failed.clear()
 
     def on_hotkey():
-        global kp_time
         val_failed.clear()
         stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
-        kp_time = time.time()
 
     def on_any_press(key):
         canon = listener.canonical(key)
         hotkey.press(canon)
 
     def on_any_release(key):
-        global kp_time
-
         canon = listener.canonical(key)
         hotkey.release(canon)
-        kp_time = time.time()
 
         if val_failed.is_set():
             stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
@@ -495,7 +484,4 @@ def main():
 
 
 if __name__ == '__main__':
-    import time
-
-    kp_time = time.time()
     main()
