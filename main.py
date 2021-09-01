@@ -17,6 +17,7 @@ import cv2 as cv
 from screenshot import screencapture, get_window_id
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
+from threadpool import threadpool
 from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
@@ -24,6 +25,7 @@ ENV = os.getenv('ENV')
 IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')
 IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVERRIDE
 IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
+DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
 DEV = ENV == 'DEV'
 
 # These are both temporary for testing. In prod, load them in from config
@@ -282,6 +284,11 @@ class StopThread(Exception):
     pass
 
 
+def cancel_futures(futures):
+    for f in futures:
+        f.cancel()
+
+
 def build_table(cell_instances, col_names, stop: threading.Event):
     """Takes a list of Cell instances and column names, and builds a table from them. Then, it passes all cells to be
     parsed by Tesseract. Cell instances are modified in place with their new row indexes and column names."""
@@ -307,6 +314,7 @@ def build_table(cell_instances, col_names, stop: threading.Event):
     with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as executor:
         for cell in cells:
             if stop.is_set():
+                cancel_futures(futures)
                 raise StopThread
 
             futures.append(executor.submit(parse_cell, cell))
@@ -314,6 +322,7 @@ def build_table(cell_instances, col_names, stop: threading.Event):
         with tqdm(futures) as pbar:
             for f in concurrent.futures.as_completed(futures):
                 if stop.is_set():
+                    cancel_futures(futures)
                     raise StopThread
 
                 cell = f.result()
@@ -385,7 +394,7 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
         top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
         bot_table = BottomForm(build_table(bot_form, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
     except StopThread:
-        return
+        return False
 
     top_bot_table = TopBottomForm(top_table, bot_table, validators=TOP_BOTTOM_VALIDATORS)
 
@@ -418,25 +427,30 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
         val_failed.clear()  # This is to stop the hotkey listener
 
 
+@threadpool
+def threadpool_parse_validate(*args, **kwargs):
+    res = parse_and_validate(*args, **kwargs)
+    return res
+
+
 def main_thread(stop: threading.Event, val_failed: threading.Event):
-    t = threading.Thread()
+    t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
     while True:
+        try:
+            res = t.result()
+        except Exception as e:
+            print(f'error occurred\n{e}')
+
         stop.wait()
-
-        if t.is_alive():
-            stop.set()
-            t.join(10)
-
         stop.clear()
-        t = threading.Thread(target=parse_and_validate, args=(stop, val_failed))
-        t.start()
+        t = threadpool_parse_validate(stop, val_failed)
 
 
 def main():
     stop = threading.Event()
     val_failed = threading.Event()
 
-    if DEV:
+    if DEV and not DEV_HOTKEYS:
         base_path = './tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
 
         if IMG_OVERRIDE is not None:
