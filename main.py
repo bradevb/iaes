@@ -323,6 +323,13 @@ def build_table(cell_instances, col_names, stop: threading.Event):
     return table if len(table) > 1 else table[0]
 
 
+def crop_borders(cell_groups, margin):
+    """Crops outsides of cells by *margin* inplace."""
+    for group in cell_groups:
+        for cell in group:
+            cell.image = cell.image[margin:-margin, margin:-margin]
+
+
 def get_form_bounds(img, cell_group):
     min_x = min(cell_group, key=lambda c: c[0])[0]
     min_y = min(cell_group, key=lambda c: c[1])[1]
@@ -355,6 +362,7 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
                            "IAES document.")
 
     cells = get_cells(captiva_form)
+    crop_borders(cells, 2)
     # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.
