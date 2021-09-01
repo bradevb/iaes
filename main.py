@@ -116,7 +116,7 @@ def _dev_cap_rem(img_path, cspace_path):
 
 
 def get_captiva_form(img):
-    def _get_form_ext(form_img):
+    def get_form_ext(form_img):
         preprocessors = [
             lambda i: processors.convert_gray(i),
             lambda i: processors.gaussian_blur(i),
@@ -125,7 +125,7 @@ def get_captiva_form(img):
 
         return FormExtractor(form_img, preprocessors)
 
-    def _good_form_check(form_img):
+    def good_form_check(form_img):
         mask = image_utils.get_color_mask(form_img, SELECTION_LOW, SELECTION_HIGH)
         if not np.any(mask):
             return
@@ -140,9 +140,9 @@ def get_captiva_form(img):
 
         return len(good_contours) == 1
 
-    form_ext = _get_form_ext(img)
+    form_ext = get_form_ext(img)
     for f in form_ext.get_images():
-        if _good_form_check(f):
+        if good_form_check(f):
             return f
 
 
@@ -169,54 +169,6 @@ def get_cells(img) -> list:
     groups.sort(key=min)
 
     return groups
-
-
-def get_top_form(cells, img):
-    """This needs to be reimplemented."""
-    return cells[2]  # TODO: get rid of this, but first implement the red pixel check
-    if len(cells[2]) == 7:  # Yikes. This needs to be better. Work on classifying cells
-        return cells[2]
-
-    for c in cells:  # This too will be replaced with classifying
-        if len(c) == 7:
-            return c
-    else:
-        raise RuntimeError('Top form could not be found.')
-
-
-def get_bottom_form(cells, img):
-    """Like get_top_form, this needs to be reimplemented."""
-    pad = 25
-
-    bottom_form = sorted(cells[0], key=lambda c: (c[1], c[0]))
-    debug_image = img.copy()
-
-    for x, y, w, h in bottom_form:
-        cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    image_utils.show_result(debug_image)
-
-    for x, y, w, h in bottom_form[::5]:
-        tmp_img = img[y:y + h, x - pad:x]  # Get slice to the left of the cell
-        debug_image = img.copy()
-        cv.rectangle(debug_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-        image_utils.show_result(debug_image)
-
-        gray_img = cv.cvtColor(tmp_img, cv.COLOR_BGR2GRAY)
-        white_pix = np.sum(gray_img == 255)
-        if white_pix:
-            return bottom_form
-    else:
-        raise RuntimeError('Bottom form could not be found.')
-
-
-def get_cell_images(orig, cells):
-    images = []
-    temp = orig.copy()
-
-    for x, y, w, h in cells:
-        cv.rectangle(temp, (x, y), (x + w, y + h), (255, 255, 255), 3)  # Cover up cell borders
-        images.append(temp[y:y + h, x:x + w])
-    return images
 
 
 def chunks(lst, n):
@@ -337,16 +289,6 @@ def crop_borders(cell_groups, margin):
     for group in cell_groups:
         for cell in group:
             cell.image = cell.image[margin:-margin, margin:-margin]
-
-
-def get_form_bounds(img, cell_group):
-    min_x = min(cell_group, key=lambda c: c[0])[0]
-    min_y = min(cell_group, key=lambda c: c[1])[1]
-    max_x = max(cell_group, key=lambda c: c[0] + c[2])[0]
-    max_y = max(cell_group, key=lambda c: c[1] + c[3])[1]
-
-    image = img[min_x:max_x, min_y:max_y]
-    image_utils.show_result(image)
 
 
 def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
