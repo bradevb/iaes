@@ -309,7 +309,60 @@ def trim_cell_borders(cell_groups, threshold):
             cell.image = img
 
 
-def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
+def pad_beginning(ls, ele, amount):
+    """Pads the beginning of *ls* with *ele* inplace. Specify the amount of *ele* with *amount*."""
+    for _ in range(amount):
+        ls.insert(0, ele)
+
+
+def replace_ele_with_ele(ls1, ls2, value):
+    """Replaces elements of *ls1* with elements of *ls2* if ls1's element == value"""
+    if len(ls1) != len(ls2):
+        raise ValueError('Length of lists must be the same')
+
+    return [ele2 if ele1 == value else ele1 for ele1, ele2 in zip(ls1, ls2)]
+
+
+def check_cell_groups(cells, prev_cells):
+    """Function that ensures that the top and bottom forms are being read correctly."""
+    prev_top = prev_cells['top']
+
+    if len(cells) == 2:
+        top_form, bot_form = cells
+    elif len(cells) == 1:
+        top_form = []
+        bot_form = cells[0]
+    else:
+        raise RuntimeError('Unable to properly read form. Please ensure that both the top and bottom forms are '
+                           'completely in view, and that there is nothing blocking either of them.\nAlso ensure '
+                           'that the currently selected cell is in view.')
+
+    # Pad beginning of top_form with None in case there are some that are out of view.
+    # This is to ensure that the cells are always in the correct order even if there are some out of view.
+    pad_beginning(top_form, None, 7 - len(top_form))
+
+    if None in top_form:
+        if not prev_top:
+            if len(cells) != 2 or None in top_form:
+                raise RuntimeError(
+                    'Unable to read entire top form. Please scroll up all the way and ensure that the top '
+                    'form is completely within view. \nAfter it has been read through the first time, '
+                    'you may scroll back down.')
+        elif None in prev_top or len(prev_top) != 7:
+            raise RuntimeError(
+                'Unable to read entire top form. Please scroll up all the way and ensure that the top '
+                'form is completely within view. \nAfter it has been read through the first time, '
+                'you may scroll back down.')
+        else:
+            top_form = replace_ele_with_ele(top_form, prev_top, None)
+
+    if len(bot_form) % 5 != 0:
+        raise RuntimeError("Couldn't properly read bottom form.")
+
+    return top_form, bot_form
+
+
+def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
     print('Parsing and validating forms...')
 
     if DEV:
@@ -336,25 +389,22 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.
 
-    if len(cells) != 2:
-        raise RuntimeError('Unable to properly read form. Please ensure that both the top and bottom forms are '
-                           'completely in view, and that there is nothing blocking either of them.\nAlso ensure that '
-                           'the currently selected cell is in view.')
-
-    top_form, bot_form = cells
-
-    if len(top_form) != 7:
+    # Verify that top and bottom cells are being detected correctly, and check if the user needs to scroll up to get
+    # the top form in view
+    try:
+        top_form, bot_form = check_cell_groups(cells, prev_cells)
+    except RuntimeError as e:
         val_failed.clear()
-        raise RuntimeError("Couldn't properly read top form.")
-    if len(bot_form) % 5 != 0:
-        val_failed.clear()
-        raise RuntimeError("Couldn't properly read bottom form.")
+        raise e
+
+    prev_top = prev_cells['top']
+    prev_bottom = prev_cells['bottom']
 
     try:
         top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
         bot_table = BottomForm(build_table(bot_form, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
     except StopThread:
-        return False
+        return
 
     top_bot_table = TopBottomForm(top_table, bot_table, validators=TOP_BOTTOM_VALIDATORS)
 
@@ -367,6 +417,7 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
         print()
 
         val_failed.set()
+        return {'top': top_form, 'bottom': bot_form}
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
@@ -385,6 +436,7 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
         #  descriptions. For County Property Tax(es), put them in yellow so that the user knows they're in the
         #  dictionary, but need to be checked just in case.
         val_failed.clear()  # This is to stop the hotkey listener
+        return {'top': top_form, 'bottom': bot_form}
 
 
 @threadpool
@@ -395,15 +447,19 @@ def threadpool_parse_validate(*args, **kwargs):
 
 def main_thread(stop: threading.Event, val_failed: threading.Event):
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
+    prev_cells = {'top': [], 'bottom': []}
+
     while True:
         try:
             res = t.result()
+            if res is not None:
+                prev_cells = res
         except Exception as e:
             print(f'error occurred\n{e}')
 
         stop.wait()
         stop.clear()
-        t = threadpool_parse_validate(stop, val_failed)
+        t = threadpool_parse_validate(prev_cells, stop, val_failed, './11_for_caching.png')
 
 
 def main():
