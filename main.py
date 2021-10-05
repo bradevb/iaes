@@ -161,7 +161,8 @@ def get_cells(img) -> list:
 
     cell_ext = get_cell_ext(img)
     cell_ext.extract()
-    groups = cell_ext.group_cells(75, 30)
+
+    groups = cell_ext.group_cells(150, 100)
 
     # Sort individual groups into rows
     groups = [sorted(g, key=lambda c: (c.coords[1], c.coords[0])) for g in groups]
