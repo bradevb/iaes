@@ -96,3 +96,15 @@ def show_cell_groups(img, cell_groups):
             x, y, w, h = c.coords
             cv.rectangle(tmp, (x, y), (x + w, y + h), (255, 0, 0), 2)
         show_result(tmp)
+
+
+def rescale_by_width(image, target_width, method=cv.INTER_LANCZOS4):
+    """Rescale `image` to `target_width` (preserving aspect ratio)."""
+    h = int(round(target_width * image.shape[0] / image.shape[1]))
+    return cv.resize(image, (target_width, h), interpolation=method)
+
+
+def rescale_by_height(image, target_height, method=cv.INTER_LANCZOS4):
+    """Rescale `image` to `target_height` (preserving aspect ratio)."""
+    w = int(round(target_height * image.shape[1] / image.shape[0]))
+    return cv.resize(image, (w, target_height), interpolation=method)

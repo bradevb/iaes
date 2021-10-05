@@ -186,7 +186,10 @@ def parse_cell(cell: Cell, scale=3):
         temp_img = cv.cvtColor(temp_img, cv.COLOR_BGR2GRAY)
         temp_img = cv.threshold(temp_img, 210, 255, cv.THRESH_BINARY)[1]
 
-        cursor_height = 11
+        # Adjust expected cursor height by the height of the cell. This makes the cursor removal work when larger
+        # monitors are used and cells are larger
+        cursor_scale = temp_img.shape[0] / 16
+        cursor_height = int(11 * cursor_scale)
         cursor_kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, cursor_height))
 
         # Get mask and invert it with ~ so that cursor's position/pixels are now white
