@@ -211,7 +211,8 @@ def parse_cell(cell: Cell):
             return temp_img
 
         # Otherwise, just check if there ARE cursor pixels
-        if c_mask_count:
+        contours, _ = cv.findContours(cursor_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        if len(contours) == 1:
             temp_cell = cell_img.copy()
             temp_cell[cursor_mask == 255] = 255
             return temp_cell
@@ -323,9 +324,24 @@ def replace_ele_with_ele(ls1, ls2, value):
     return [ele2 if ele1 == value else ele1 for ele1, ele2 in zip(ls1, ls2)]
 
 
-def check_cell_groups(cells, prev_cells):
+class NeedsScroll(Exception):
+    def __init__(self, top_form):
+        self.top_form = top_form
+
+
+def check_cell_groups(cells, prev_top_cells):
     """Function that ensures that the top and bottom forms are being read correctly."""
-    prev_top = prev_cells['top']
+
+    def should_scroll(bot_cells, rows):
+        """Reads through bottom *rows* rows of table, and if there are cells containing text, return True,
+        otherwise return False"""
+        num_of_cells = rows * 5
+        for c in bot_cells[-num_of_cells:]:
+            if image_utils.check_color(c.image, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
+                return True
+        return False
+
+    prev_top = prev_top_cells['top']
 
     if len(cells) == 2:
         top_form, bot_form = cells
@@ -359,10 +375,13 @@ def check_cell_groups(cells, prev_cells):
     if len(bot_form) % 5 != 0:
         raise RuntimeError("Couldn't properly read bottom form.")
 
+    if should_scroll(bot_form, 2):
+        raise NeedsScroll(top_form)
+
     return top_form, bot_form
 
 
-def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
+def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
     print('Parsing and validating forms...')
 
     if DEV:
@@ -384,7 +403,7 @@ def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: thre
                            "IAES document.")
 
     cells = get_cells(captiva_form)
-    trim_cell_borders(cells, 200)
+    trim_cell_borders(cells, 210)
     # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.
@@ -392,13 +411,13 @@ def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: thre
     # Verify that top and bottom cells are being detected correctly, and check if the user needs to scroll up to get
     # the top form in view
     try:
-        top_form, bot_form = check_cell_groups(cells, prev_cells)
+        top_form, bot_form = check_cell_groups(cells, prev_top_cells)
     except RuntimeError as e:
         val_failed.clear()
         raise e
-
-    prev_top = prev_cells['top']
-    prev_bottom = prev_cells['bottom']
+    except NeedsScroll as e:
+        print('Please scroll down so that the entire bottom table is in view.')
+        return e.top_form
 
     try:
         top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
@@ -417,7 +436,7 @@ def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: thre
         print()
 
         val_failed.set()
-        return {'top': top_form, 'bottom': bot_form}
+        return top_form
     else:
         print(f'{Fore.GREEN}VALIDATORS PASSED!')
         print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
@@ -436,7 +455,7 @@ def parse_and_validate(prev_cells: dict, stop: threading.Event, val_failed: thre
         #  descriptions. For County Property Tax(es), put them in yellow so that the user knows they're in the
         #  dictionary, but need to be checked just in case.
         val_failed.clear()  # This is to stop the hotkey listener
-        return {'top': top_form, 'bottom': bot_form}
+        return top_form
 
 
 @threadpool
@@ -447,22 +466,23 @@ def threadpool_parse_validate(*args, **kwargs):
 
 def main_thread(stop: threading.Event, val_failed: threading.Event):
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
-    prev_cells = {'top': [], 'bottom': []}
+    prev_top_cells = []
 
     while True:
         try:
             res = t.result()
             if res is not None:
-                prev_cells = res
+                prev_top_cells = res
         except Exception as e:
             print(f'error occurred\n{e}')
 
         stop.wait()
         stop.clear()
-        t = threadpool_parse_validate(prev_cells, stop, val_failed, './11_for_caching.png')
+        t = threadpool_parse_validate(prev_top_cells, stop, val_failed)
 
 
 def main():
+    prev_top_cells = []
     stop = threading.Event()
     val_failed = threading.Event()
 
@@ -471,11 +491,11 @@ def main():
 
         if IMG_OVERRIDE is not None:
             for image_num in IMG_OVERRIDE:
-                parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
+                parse_and_validate(prev_top_cells, stop, val_failed, f'{base_path}/{image_num}')
             return
 
         for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
-            parse_and_validate(stop, val_failed, f'{base_path}/{image_num}')
+            parse_and_validate(prev_top_cells, stop, val_failed, f'{base_path}/{image_num}')
         return
 
     threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
