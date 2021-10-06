@@ -186,7 +186,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def parse_cell(cell: Cell, scale=3):
+def parse_cell(cell: Cell):
     def remove_cursor(cell_img):
         """Finds and removes cursors from any cell by finding lines that are long enough to be the cursor,
         and writing over them."""
@@ -225,7 +225,7 @@ def parse_cell(cell: Cell, scale=3):
 
         temp_img = ~image_utils.get_color_mask(temp_img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
         temp_img = cv.cvtColor(temp_img, cv.COLOR_GRAY2BGR)
-        temp_img = cv.resize(temp_img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
+        temp_img = cv.resize(temp_img, None, fx=3, fy=3, interpolation=cv.INTER_CUBIC)
         temp_img = cv.GaussianBlur(temp_img, (7, 7), 0)
 
         return temp_img
@@ -237,7 +237,9 @@ def parse_cell(cell: Cell, scale=3):
     if not image_utils.check_color(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
         return cell
 
-    img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_CUBIC)
+    if img.shape[0] < 54:
+        s = 54 / img.shape[0]
+        img = cv.resize(img, None, fx=s, fy=s, interpolation=cv.INTER_CUBIC)
 
     text = pytesseract.image_to_string(img, config='--psm 6')
     cell.text = text.replace('\n', '').replace('\f', '').replace('\t', '')
