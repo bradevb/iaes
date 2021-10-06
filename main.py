@@ -168,6 +168,14 @@ def get_cells(img) -> list:
     groups = [sorted(g, key=lambda c: (c.coords[1], c.coords[0])) for g in groups]
     # Sort groups by descending y
     groups.sort(key=min)
+    # Then sort each row in bottom form by x
+    bot_form_idx = 1 if len(groups) > 1 else 0
+    bot_form_chunks = chunks(groups[bot_form_idx], 5)
+    bot_form = []
+    for i in bot_form_chunks:
+        bot_form.extend(sorted(i, key=lambda c: c.coords[0]))
+
+    groups[bot_form_idx] = bot_form
 
     return groups
 
@@ -198,7 +206,7 @@ def parse_cell(cell: Cell, scale=3):
 
         # Check if cell has a lot of cursor pixels. If it has over 50, this cell is more than likely a selected cell,
         # and therefore needs special processing
-        if c_mask_count > 50:
+        if c_mask_count > 50 * cursor_scale:
             temp_img = process_selected(cell_img)
             return temp_img
 
@@ -288,11 +296,15 @@ def build_table(cell_instances, col_names, stop: threading.Event):
     return table if len(table) > 1 else table[0]
 
 
-def crop_borders(cell_groups, margin):
-    """Crops outsides of cells by *margin* inplace."""
+def trim_cell_borders(cell_groups, threshold):
+    """Trims off the gray outline on cells"""
     for group in cell_groups:
         for cell in group:
-            cell.image = cell.image[margin:-margin, margin:-margin]
+            img = cell.image.copy()
+            thresh = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            thresh = cv.threshold(thresh, threshold, 255, cv.THRESH_BINARY)[1]
+            _, img = image_utils.trim_recursive(thresh, img)
+            cell.image = img
 
 
 def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
@@ -317,7 +329,7 @@ def parse_and_validate(stop: threading.Event, val_failed: threading.Event, dev_i
                            "IAES document.")
 
     cells = get_cells(captiva_form)
-    crop_borders(cells, 2)
+    trim_cell_borders(cells, 200)
     # TODO: Check for presence of red pixels in entire captiva form. If red cells are
     #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
     #  to an empty one.

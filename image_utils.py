@@ -98,6 +98,31 @@ def show_cell_groups(img, cell_groups):
         show_result(tmp)
 
 
+def trim_recursive(frame, orig=None):
+    """Recursively removes black borders from images. *frame* should be a thresholded image. *orig* is the original,
+    colorized image. If *orig* is not passed, *frame* will be copied onto it."""
+
+    if orig is None:
+        orig = frame.copy()
+
+    if frame.shape[0] == 0:
+        return np.zeros((0, 0, 3)), np.zeros((0, 0, 3))
+
+    if not np.sum(frame[0]):  # crop top
+        return trim_recursive(frame[1:], orig[1:])
+
+    elif not np.sum(frame[-1]):  # crop bottom
+        return trim_recursive(frame[:-1], orig[:-1])
+
+    elif not np.sum(frame[:, 0]):  # crop left
+        return trim_recursive(frame[:, 1:], orig[:, 1:])
+
+    elif not np.sum(frame[:, -1]):  # crop right
+        return trim_recursive(frame[:, :-1], orig[:, :-1])
+
+    return frame, orig
+
+
 def rescale_by_width(image, target_width, method=cv.INTER_LANCZOS4):
     """Rescale `image` to `target_width` (preserving aspect ratio)."""
     h = int(round(target_width * image.shape[0] / image.shape[1]))
