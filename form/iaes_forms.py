@@ -54,10 +54,6 @@ class TopForm:
     def __post_init__(self):
         self.df = pd.Series(self.cells)
 
-    def append(self, cname, val):
-        self.cells[cname] = val
-        self.df = pd.Series(self.cells)
-
     def validate(self):
         if self.validators is None:
             return
@@ -72,10 +68,6 @@ class BottomForm:
     validators: list = None
 
     def __post_init__(self):
-        self.df = pd.DataFrame(self.rows)
-
-    def append(self, row):
-        self.rows.append(row)
         self.df = pd.DataFrame(self.rows)
 
     def validate(self):
@@ -95,6 +87,9 @@ class TopBottomForm:
     def validate(self):
         self.top_form.validate()
         self.bot_form.validate()
+
+        if self.validators is None:
+            return
 
         for v in self.validators:
             v(self.top_form.df, self.bot_form.df)
