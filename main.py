@@ -51,6 +51,8 @@ ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
 RED_LOW = (4, 165, 255)
 RED_HIGH = (11, 244, 255)
+QUESTION_MARK_LOW = (111, 151, 178)
+QUESTION_MARK_HIGH = (179, 172, 222)
 SELECTION_LOW = (97, 158, 195)
 SELECTION_HIGH = (112, 177, 255)
 
@@ -140,7 +142,7 @@ def get_captiva_form(img):
             if w * h > 40:
                 good_contours.append(c)
 
-        return len(good_contours) == 1
+        return len(good_contours) == 1 or image_utils.check_color(form_img, QUESTION_MARK_LOW, QUESTION_MARK_HIGH)
 
     form_ext = get_form_ext(img)
     for f in form_ext.get_images():
