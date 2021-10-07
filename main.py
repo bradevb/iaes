@@ -7,7 +7,7 @@ import os
 import numpy as np
 import pytesseract
 from colorama import Fore
-from pynput import keyboard
+from pynput import keyboard, mouse
 from tqdm import tqdm
 
 import image_utils
@@ -50,7 +50,7 @@ TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
 ORANGE_REFINED_LOW = (12, 209, 246)
-ORANGE_REFINED_HIGH = (20, 220, 255)
+ORANGE_REFINED_HIGH = (20, 240, 255)
 RED_LOW = (4, 165, 255)
 RED_HIGH = (11, 244, 255)
 QUESTION_MARK_LOW = (111, 151, 178)
@@ -331,8 +331,12 @@ def replace_ele_with_ele(ls1, ls2, value):
 
 
 class NeedsScroll(Exception):
-    def __init__(self, top_form):
+    def __init__(self, message, top_form):
+        self.message = message
         self.top_form = top_form
+
+    def __str__(self):
+        return self.message
 
 
 def check_cell_groups(cells, prev_top_cells):
@@ -347,7 +351,7 @@ def check_cell_groups(cells, prev_top_cells):
                 return True
         return False
 
-    prev_top = prev_top_cells['top']
+    prev_top = prev_top_cells
 
     if len(cells) == 2:
         top_form, bot_form = cells
@@ -366,15 +370,15 @@ def check_cell_groups(cells, prev_top_cells):
     if None in top_form:
         if not prev_top:
             if len(cells) != 2 or None in top_form:
-                raise RuntimeError(
+                raise NeedsScroll(
                     'Unable to read entire top form. Please scroll up all the way and ensure that the top '
                     'form is completely within view. \nAfter it has been read through the first time, '
-                    'you may scroll back down.')
+                    'you may scroll back down.', top_form)
         elif None in prev_top or len(prev_top) != 7:
-            raise RuntimeError(
+            raise NeedsScroll(
                 'Unable to read entire top form. Please scroll up all the way and ensure that the top '
                 'form is completely within view. \nAfter it has been read through the first time, '
-                'you may scroll back down.')
+                'you may scroll back down.', top_form)
         else:
             top_form = replace_ele_with_ele(top_form, prev_top, None)
 
@@ -382,13 +386,17 @@ def check_cell_groups(cells, prev_top_cells):
         raise RuntimeError("Couldn't properly read bottom form.")
 
     if should_scroll(bot_form, 2):
-        raise NeedsScroll(top_form)
+        raise NeedsScroll('Please scroll down so that the entire bottom table is in view.', top_form)
 
     return top_form, bot_form
 
 
-def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: threading.Event, dev_image_path=None):
+def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     print('Parsing and validating forms...')
+
+    stop = events['stop']
+    val_failed = events['val_failed']
+    scroll = events['scroll']
 
     if DEV:
         if not dev_image_path:
@@ -428,7 +436,8 @@ def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: 
         val_failed.clear()
         raise e
     except NeedsScroll as e:
-        print('Please scroll down so that the entire bottom table is in view.')
+        scroll.set()
+        print(e)
         return e.top_form
 
     try:
@@ -468,6 +477,8 @@ def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: 
         #  dictionary, but need to be checked just in case.
         val_failed.clear()  # This is to stop the hotkey listener
         return top_form
+    finally:
+        scroll.clear()
 
 
 @threadpool
@@ -476,7 +487,9 @@ def threadpool_parse_validate(*args, **kwargs):
     return res
 
 
-def main_thread(stop: threading.Event, val_failed: threading.Event):
+def main_thread(events: dict):
+    stop = events['stop']
+    go = events['go']
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
     prev_top_cells = []
 
@@ -488,29 +501,47 @@ def main_thread(stop: threading.Event, val_failed: threading.Event):
         except Exception as e:
             print(f'error occurred\n{e}')
 
-        stop.wait()
+        go.wait()
+        go.clear()
         stop.clear()
-        t = threadpool_parse_validate(prev_top_cells, stop, val_failed)
+        t = threadpool_parse_validate(prev_top_cells, events)
+
+
+class DelayedEvent:
+    def __init__(self, wait, event_func):
+        self._timer = threading.Timer(0, lambda: None)
+        self._event_func = event_func
+        self.wait = wait
+
+    def trigger(self):
+        self._timer.cancel()
+        self._timer = threading.Timer(self.wait, self._event_func)
+        self._timer.start()
 
 
 def main():
     prev_top_cells = []
+
     stop = threading.Event()
+    go = threading.Event()
+    scroll = threading.Event()
     val_failed = threading.Event()
+    events = {'stop': stop, 'go': go, 'scroll': scroll, 'val_failed': val_failed}
 
     if DEV and not DEV_HOTKEYS:
         base_path = './tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
 
         if IMG_OVERRIDE is not None:
             for image_num in IMG_OVERRIDE:
-                parse_and_validate(prev_top_cells, stop, val_failed, f'{base_path}/{image_num}')
+                parse_and_validate(prev_top_cells, events, f'{base_path}/{image_num}')
             return
 
         for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
-            parse_and_validate(prev_top_cells, stop, val_failed, f'{base_path}/{image_num}')
+            parse_and_validate(prev_top_cells, events, f'{base_path}/{image_num}')
         return
 
-    threading.Thread(target=main_thread, args=(stop, val_failed), daemon=True).start()
+    main_t = threading.Thread(target=main_thread, args=(events,), daemon=True)
+    main_t.start()
 
     print('Waiting for hotkey...')
     print('Make sure there is a blank cell selected when you press the hotkey.')
@@ -519,24 +550,38 @@ def main():
 
     def on_hotkey():
         val_failed.clear()
-        stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
+        go.set()  # Sets stop to True, and triggers main_thread to begin parsing.
 
     def on_any_press(key):
-        canon = listener.canonical(key)
+        canon = key_listener.canonical(key)
         hotkey.press(canon)
 
+    any_release_timer = DelayedEvent(0.5, go.set)
+
     def on_any_release(key):
-        canon = listener.canonical(key)
+        canon = key_listener.canonical(key)
         hotkey.release(canon)
 
         if val_failed.is_set():
-            stop.set()  # Sets stop to True, and triggers main_thread to begin parsing.
+            stop.set()
+            any_release_timer.trigger()
+
+    scroll_timer = DelayedEvent(0.5, go.set)
+
+    def on_scroll(x, y, dx, dy):
+        if scroll.is_set():
+            stop.set()
+            scroll_timer.trigger()
 
     hotkey_combo = keyboard.HotKey.parse('<alt>' if DEV else '<f4>')
     hotkey = keyboard.HotKey(hotkey_combo, on_hotkey)
 
-    with keyboard.Listener(on_press=on_any_press, on_release=on_any_release) as listener:
-        listener.join()
+    key_listener = keyboard.Listener(on_press=on_any_press, on_release=on_any_release)
+    key_listener.start()
+    mouse_listener = mouse.Listener(on_scroll=on_scroll)
+    mouse_listener.start()
+
+    main_t.join()
 
 
 if __name__ == '__main__':
