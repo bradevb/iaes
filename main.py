@@ -49,6 +49,8 @@ TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
+RED_LOW = (4, 165, 255)
+RED_HIGH = (11, 244, 255)
 SELECTION_LOW = (97, 158, 195)
 SELECTION_HIGH = (112, 177, 255)
 
@@ -402,11 +404,14 @@ def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: 
                            "screen.\nIf this error continues to occur, please try moving the window containing the "
                            "IAES document.")
 
+    # Check for image snippet red box. If it's there, it could be blocking cells, so raise an error.
+    if image_utils.check_color(captiva_form, RED_LOW, RED_HIGH):
+        val_failed.clear()
+        raise RuntimeError('Image snippet detected. Please select a blank cell and rescan.\nIt is recommended that '
+                           'you turn off image snippets by going to View -> Image Snippets.')
+
     cells = get_cells(captiva_form)
     trim_cell_borders(cells, 210)
-    # TODO: Check for presence of red pixels in entire captiva form. If red cells are
-    #  found, prompt user to either turn off image snippets in View -> Image Snippets, or to move the selected cell
-    #  to an empty one.
 
     # Verify that top and bottom cells are being detected correctly, and check if the user needs to scroll up to get
     # the top form in view
