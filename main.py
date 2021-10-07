@@ -49,6 +49,8 @@ TEXT_COLOR_LOW = (0, 0, 0)
 TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
+ORANGE_REFINED_LOW = (12, 209, 246)
+ORANGE_REFINED_HIGH = (20, 220, 255)
 RED_LOW = (4, 165, 255)
 RED_HIGH = (11, 244, 255)
 QUESTION_MARK_LOW = (111, 151, 178)
@@ -411,6 +413,9 @@ def parse_and_validate(prev_top_cells: list, stop: threading.Event, val_failed: 
         val_failed.clear()
         raise RuntimeError('Image snippet detected. Please select a blank cell and rescan.\nIt is recommended that '
                            'you turn off image snippets by going to View -> Image Snippets.')
+    elif image_utils.check_color(captiva_form, ORANGE_REFINED_LOW, ORANGE_REFINED_HIGH):
+        val_failed.clear()
+        raise RuntimeError('A cell highlighted in orange has been found. Please fix that cell and rescan.')
 
     cells = get_cells(captiva_form)
     trim_cell_borders(cells, 210)
