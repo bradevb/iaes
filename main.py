@@ -8,7 +8,7 @@ import numpy as np
 import pytesseract
 from colorama import Fore
 from pynput import keyboard, mouse
-from tqdm import tqdm
+from halo import Halo
 
 import image_utils
 import cspace
@@ -40,6 +40,30 @@ TOP_COL_NAMES = ['proj_start_date',
                  'pi_amount',
                  'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
+
+# These are commonly seen descriptions. Each forms' descriptions are checked against these in the main program. The
+# dictionary keys correspond to Halo's statuses. That way, when looping through the keys, one can easily just call
+# spinner[key](description).
+MONTH_STATUSES = {
+    'succeed': [
+        'MORTGAGE INSURANCE',
+        'MTG INS',
+        'HAZARD INSURANCE',
+        'HAZ INS',
+        'PROPERTY TAXES',
+        'PROP TAXES'
+    ],
+    'warn': [
+        'COUNTY PROPERTY TAX',
+        'COUNTY PROPERTY TAXES',
+    ],
+}
+
+MONTH_STATUS_COLORS = {
+    'fail': 'red',
+    'warn': 'yellow',
+    'succeed': 'green',
+}
 
 # For converting screenshots to the right color space
 CSPACE_PATH = './icc/IAES_COLOR_PROFILE.icc'
@@ -292,15 +316,13 @@ def build_table(cell_instances, col_names, stop: threading.Event):
 
             futures.append(executor.submit(parse_cell, cell))
 
-        with tqdm(futures) as pbar:
-            for f in concurrent.futures.as_completed(futures):
-                if stop.is_set():
-                    cancel_futures(futures)
-                    raise StopThread
+        for f in concurrent.futures.as_completed(futures):
+            if stop.is_set():
+                cancel_futures(futures)
+                raise StopThread
 
-                cell = f.result()
-                table[cell.row_idx][cell.col_name] = cell.text
-                pbar.update()
+            cell = f.result()
+            table[cell.row_idx][cell.col_name] = cell.text
 
     return table if len(table) > 1 else table[0]
 
