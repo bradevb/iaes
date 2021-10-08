@@ -77,6 +77,10 @@ class BottomForm:
         for v in self.validators:
             v(self.df)
 
+    def get_descriptions(self):
+        """Returns all non-blank descriptions in a form."""
+        return [d for d in self.df.description if d is not None]
+
 
 @dataclass
 class TopBottomForm:

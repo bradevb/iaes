@@ -330,6 +330,13 @@ def replace_ele_with_ele(ls1, ls2, value):
     return [ele2 if ele1 == value else ele1 for ele1, ele2 in zip(ls1, ls2)]
 
 
+def print_descriptions(descriptions: list):
+    desc = set(descriptions)
+
+    for d in desc:
+        print(d)
+
+
 class NeedsScroll(Exception):
     def __init__(self, message, top_form):
         self.message = message
@@ -467,14 +474,12 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
               f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
         print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.')
         print()
+        print_descriptions(bot_table.get_descriptions())
 
         # TODO: Put a print here that tells the user what the last month's balance should be. Remind the user that
         #  they MUST check that with the IAES document. Maybe even pause execution and wait for user to confirm it
         #  matches. If it does not match, there is something wrong, and the user needs to go through the entire form
         #  and double check everything.
-        # TODO: Put a print here that checks the descriptions and prints them in red if they don't match expected
-        #  descriptions. For County Property Tax(es), put them in yellow so that the user knows they're in the
-        #  dictionary, but need to be checked just in case.
         val_failed.clear()  # This is to stop the hotkey listener
         return top_form
     finally:
