@@ -10,6 +10,7 @@ from colorama import Fore
 from pynput import keyboard, mouse
 from halo import Halo
 
+import exceptions
 import image_utils
 import cspace
 import processors
@@ -359,15 +360,6 @@ def print_descriptions(descriptions: list):
         print(d)
 
 
-class NeedsScroll(Exception):
-    def __init__(self, message, top_form):
-        self.message = message
-        self.top_form = top_form
-
-    def __str__(self):
-        return self.message
-
-
 def check_cell_groups(cells, prev_top_cells):
     """Function that ensures that the top and bottom forms are being read correctly."""
 
@@ -388,9 +380,9 @@ def check_cell_groups(cells, prev_top_cells):
         top_form = []
         bot_form = cells[0]
     else:
-        raise RuntimeError('Unable to properly read form. Please ensure that both the top and bottom forms are '
-                           'completely in view, and that there is nothing blocking either of them.\nAlso ensure '
-                           'that the currently selected cell is in view.')
+        raise exceptions.ExtractionError('Unable to properly read form. Please ensure that both the top and bottom '
+                                         'forms are completely in view, and that there is nothing blocking either of '
+                                         'them.\nAlso ensure that the currently selected cell is in view.')
 
     # Pad beginning of top_form with None in case there are some that are out of view.
     # This is to ensure that the cells are always in the correct order even if there are some out of view.
@@ -399,23 +391,24 @@ def check_cell_groups(cells, prev_top_cells):
     if None in top_form:
         if not prev_top:
             if len(cells) != 2 or None in top_form:
-                raise NeedsScroll(
+                raise exceptions.ScrollError(
                     'Unable to read entire top form. Please scroll up all the way and ensure that the top '
                     'form is completely within view. \nAfter it has been read through the first time, '
-                    'you may scroll back down.', top_form)
+                    'you may scroll back down.', top_form=top_form)
         elif None in prev_top or len(prev_top) != 7:
-            raise NeedsScroll(
+            raise exceptions.ScrollError(
                 'Unable to read entire top form. Please scroll up all the way and ensure that the top '
                 'form is completely within view. \nAfter it has been read through the first time, '
-                'you may scroll back down.', top_form)
+                'you may scroll back down.', top_form=top_form)
         else:
             top_form = replace_ele_with_ele(top_form, prev_top, None)
 
     if len(bot_form) % 5 != 0:
-        raise RuntimeError("Couldn't properly read bottom form.")
+        raise exceptions.ExtractionError("Couldn't properly read bottom form.")
 
     if should_scroll(bot_form, 2):
-        raise NeedsScroll('Please scroll down so that the entire bottom table is in view.', top_form)
+        raise exceptions.ScrollError('Please scroll down so that the entire bottom table is in view.',
+                                     top_form=top_form)
 
     return top_form, bot_form
 
@@ -441,18 +434,20 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     captiva_form = get_captiva_form(image)
     if captiva_form is None:
         val_failed.clear()
-        raise RuntimeError("Couldn't find IAES form. Please ensure Captiva is pulled up and an IAES form is on "
-                           "screen.\nIf this error continues to occur, please try moving the window containing the "
-                           "IAES document.")
+        raise exceptions.ExtractionError("Couldn't find IAES form. Please ensure Captiva is pulled up and an IAES "
+                                         "form is on screen.\nIf this error continues to occur, please try moving the "
+                                         "window containing the IAES document.")
 
     # Check for image snippet red box. If it's there, it could be blocking cells, so raise an error.
     if image_utils.check_color(captiva_form, RED_LOW, RED_HIGH):
         val_failed.clear()
-        raise RuntimeError('Image snippet detected. Please select a blank cell and rescan.\nIt is recommended that '
-                           'you turn off image snippets by going to View -> Image Snippets.')
+        raise exceptions.ExtractionError('Image snippet detected. Please select a blank cell and rescan.\nIt is '
+                                         'recommended that you turn off image snippets by going to View -> Image '
+                                         'Snippets.')
     elif image_utils.check_color(captiva_form, ORANGE_REFINED_LOW, ORANGE_REFINED_HIGH):
         val_failed.clear()
-        raise RuntimeError('A cell highlighted in orange has been found. Please fix that cell and rescan.')
+        raise exceptions.ExtractionError('A cell highlighted in orange has been found. Please fix that cell and '
+                                         'rescan.')
 
     cells = get_cells(captiva_form)
     trim_cell_borders(cells, 210)
@@ -461,10 +456,10 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     # the top form in view
     try:
         top_form, bot_form = check_cell_groups(cells, prev_top_cells)
-    except RuntimeError as e:
+    except exceptions.ExtractionError as e:
         val_failed.clear()
         raise e
-    except NeedsScroll as e:
+    except exceptions.ScrollError as e:
         scroll.set()
         print(e)
         return e.top_form
