@@ -106,7 +106,7 @@ class RemoteDesktop:
             return image_utils.load_image(temp_image.name)
 
     def check_win_id(self):
-        # TODO: check to see if previous window id is present. If it is, use its id to screenshot window
+        # NOTE: maybe check to see if previous window id is present. If it is, use its id to screenshot window
         self._get_windows()
 
         if not self._validate_win_list():
@@ -117,14 +117,9 @@ class RemoteDesktop:
         self.has_run = True
 
     def _select_window(self):
-        while not self._validate_win_list():
-            print("There's been an error finding the correct Remote Desktop window.")
-            print('The window has either changed or is not visible on screen.')
-            print('Please put ONLY the window that has the IAES form on the screen, and press Enter.')
-            input()
-            self._get_windows()
-
-        self.win_id = self._windows[0]
+        if not self._validate_win_list():
+            raise RuntimeError('Unable to find Remote Desktop window.\n'
+                               'Please ensure the Remote Desktop window is pulled up and visible.')
 
     def _validate_win_list(self):
         if len(self._windows) > 1 or not self._windows:
