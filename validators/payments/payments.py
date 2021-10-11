@@ -1,3 +1,6 @@
+from exceptions import ValidationError
+
+
 def _get_payment_col(dataframe, to_or_from, keep_none=True):
     acceptable_columns = ['to', 'from']
     if to_or_from not in acceptable_columns:
@@ -21,7 +24,7 @@ def ensure_payments_format(dataframe):
             try:
                 int(amount)
             except ValueError:
-                raise ValueError(f'Invalid payment to/from amount: {amount}.')
+                raise ValidationError(f'Invalid payment to/from amount: {amount}.')
 
 
 def ensure_same_payment_to(dataframe):
@@ -31,7 +34,7 @@ def ensure_same_payment_to(dataframe):
     for amount in to_payment_col[1:]:  # Skip first element since it is starting amount and being compared
 
         if amount != starting_amount:
-            raise ValueError(f'Payment to amount {amount} is not equal to starting amount {starting_amount}.')
+            raise ValidationError(f'Payment to amount {amount} is not equal to starting amount {starting_amount}.')
 
 
 PAYMENT_VALIDATORS = [

@@ -474,7 +474,7 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
 
     try:
         top_bot_table.validate()
-    except ValueError as e:
+    except exceptions.ValidationError as e:
 
         print(f'{Fore.RED}VALIDATION ERROR:')
         print(f'{Fore.RED}{e}')

@@ -1,4 +1,5 @@
 import validators.dates._date_helpers as _dv
+from exceptions import ValidationError
 
 
 def _get_date_col(dataframe, to_or_from, keep_none=True):
@@ -22,7 +23,7 @@ def ensure_correct_date_format(dataframe):
     for col in [to_date_col, from_date_col]:
         for date in col:
             if not _dv.check_date_format(date):
-                raise ValueError(f'Date {date} is not the correct format. It should be: MMYY.')
+                raise ValidationError(f'Date {date} is not the correct format. It should be: MMYY.')
 
 
 def ensure_total_timespan(dataframe):
@@ -31,7 +32,7 @@ def ensure_total_timespan(dataframe):
     end = dates[-1]
 
     if not _dv.check_year(start, end):
-        raise ValueError('The first and last months are not one year apart.')
+        raise ValidationError('The first and last months are not one year apart.')
 
 
 def ensure_no_to_date_duplicates(dataframe):
@@ -40,7 +41,7 @@ def ensure_no_to_date_duplicates(dataframe):
     checked = []
     for date in to_date_col:
         if date in checked:
-            raise ValueError(f'PAYMENT TO date {date} has a duplicate.')
+            raise ValidationError(f'PAYMENT TO date {date} has a duplicate.')
         checked.append(date)
 
 
@@ -49,7 +50,7 @@ def ensure_consecutive_dates(dataframe):
 
     for current_month, next_month in zip(dates, dates[1::]):
         if not _dv.check_consecutive_dates(current_month, next_month):
-            raise ValueError(f'Months {current_month} and {next_month} are not consecutive.')
+            raise ValidationError(f'Months {current_month} and {next_month} are not consecutive.')
 
 
 def ensure_same_date_cols(dataframe):
@@ -66,7 +67,7 @@ def ensure_same_date_cols(dataframe):
             continue
 
         if prev_to_date != prev_from_date:
-            raise ValueError(f'PAYMENT TO date {prev_to_date} is not equal to PAYMENT FROM date {prev_from_date}.')
+            raise ValidationError(f'PAYMENT TO date {prev_to_date} is not equal to PAYMENT FROM date {prev_from_date}.')
 
 
 DATE_VALIDATORS = [

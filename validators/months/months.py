@@ -7,6 +7,8 @@ These validators check to make sure all rows have all the correct cells filled o
 filled out).
 """
 
+from exceptions import ValidationError
+
 
 def _get_col(dataframe, col_name, keep_none=True):
     col = list(dataframe[col_name])
@@ -31,7 +33,7 @@ def ensure_to_cols_cells(dataframe):
     for to_col in zip(to_date_col, to_amount_col):
         if any(to_col) and not all(to_col):
             date, payment = to_col
-            raise ValueError(f'Date {date} and amount {payment} must both be present, or not there.')
+            raise ValidationError(f'Date {date} and amount {payment} must both be present, or not there.')
 
 
 def ensure_from_cols_cells(dataframe):
@@ -42,20 +44,20 @@ def ensure_from_cols_cells(dataframe):
     for from_col in zip(from_description_col, from_date_col, from_amount_col):
         if any(from_col) and not all(from_col):
             description, date, amount = from_col
-            raise ValueError(f'Description {description}, date {date}, and amount {amount} must all be present.')
+            raise ValidationError(f'Description {description}, date {date}, and amount {amount} must all be present.')
 
 
 def ensure_no_blank_months(df):
     try:
         trimmed_df = _trim_trailing_rows(df)
     except IndexError:
-        raise ValueError('There is a problem with the months. Please double check the form.')
+        raise ValidationError('There is a problem with the months. Please double check the form.')
 
     trimmed_df = trimmed_df.values
 
     for row, month in enumerate(trimmed_df):
         if not any(month):
-            raise ValueError(f'Row {row + 1} is blank. There should not be any completely blank rows.')
+            raise ValidationError(f'Row {row + 1} is blank. There should not be any completely blank rows.')
 
 
 MONTH_VALIDATORS = [
