@@ -348,13 +348,6 @@ def replace_ele_with_ele(ls1, ls2, value):
     return [ele2 if ele1 == value else ele1 for ele1, ele2 in zip(ls1, ls2)]
 
 
-def print_descriptions(descriptions: list):
-    desc = set(descriptions)
-
-    for d in desc:
-        print(d)
-
-
 def check_cell_groups(cells, prev_top_cells):
     """Function that ensures that the top and bottom forms are being read correctly."""
 
@@ -409,8 +402,6 @@ def check_cell_groups(cells, prev_top_cells):
 
 
 def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
-    print('Parsing and validating forms...')
-
     stop = events['stop']
     val_failed = events['val_failed']
     scroll = events['scroll']
@@ -456,8 +447,7 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
         raise e
     except exceptions.ScrollError as e:
         scroll.set()
-        print(e)
-        return e.top_form
+        raise e
 
     try:
         top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
@@ -470,30 +460,11 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     try:
         top_bot_table.validate()
     except exceptions.ValidationError as e:
-
-        print(f'{Fore.RED}VALIDATION ERROR:')
-        print(f'{Fore.RED}{e}')
-        print()
-
         val_failed.set()
-        return top_form
-    else:
-        print(f'{Fore.GREEN}VALIDATORS PASSED!')
-        print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
-
-        # TODO: make this always return two decimal points
-        print(f'{Fore.GREEN}This is the expected final balance: '
-              f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
-        print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.')
-        print()
-        print_descriptions(bot_table.get_descriptions())
-
-        # TODO: Put a print here that tells the user what the last month's balance should be. Remind the user that
-        #  they MUST check that with the IAES document. Maybe even pause execution and wait for user to confirm it
-        #  matches. If it does not match, there is something wrong, and the user needs to go through the entire form
-        #  and double check everything.
+        raise exceptions.ValidationError(e, top_form=top_form)
+    else:  # No exceptions, validation passed
         val_failed.clear()  # This is to stop the hotkey listener
-        return top_form
+        return top_form, top_table, bot_table
     finally:
         scroll.clear()
 
@@ -504,6 +475,12 @@ def threadpool_parse_validate(*args, **kwargs):
     return res
 
 
+def print_descriptions(descriptions: list):
+    desc = set(descriptions)
+    for d in desc:
+        print(d)
+
+
 def main_thread(events: dict):
     stop = events['stop']
     go = events['go']
@@ -512,15 +489,41 @@ def main_thread(events: dict):
 
     while True:
         try:
+            # Get result of the scan. Calling t.result() will raise exceptions that occurred in the thread.
             res = t.result()
-            if res is not None:
-                prev_top_cells = res
+
+        except exceptions.ValidationError as e:
+            print(f'{Fore.RED}VALIDATION ERROR:')
+            print(f'{Fore.RED}{e}')
+            print()
+            prev_top_cells = e.top_form
+
+        except exceptions.ScrollError as e:
+            print(e)
+
         except Exception as e:
             print(f'error occurred\n{e}')
+
+        else:  # No exceptions, which means that validation passed or was interrupted
+            if type(res) is tuple:
+                prev_top_cells, top_table, bot_table = res
+
+                print(f'{Fore.GREEN}VALIDATORS PASSED!')
+                print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
+
+                # TODO: make this always return two decimal points
+                print(f'{Fore.GREEN}This is the expected final balance: '
+                      f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
+                print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.\n')
+                print_descriptions(bot_table.get_descriptions())
+            elif res is not None:
+                prev_top_cells = res
 
         go.wait()
         go.clear()
         stop.clear()
+
+        print('Parsing and validating forms...')
         t = threadpool_parse_validate(prev_top_cells, events)
 
 
