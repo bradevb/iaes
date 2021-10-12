@@ -527,7 +527,7 @@ def main_thread(events: dict):
     logging.basicConfig(filename='log.log', level=logging.DEBUG)
 
     term = blessed.Terminal()
-    print(term.home + term.clear_eos)
+    print(term.home + term.clear)
     spinner = Halo(text_color='cyan')
     spinner.start()
     spinner.info('Please press the hotkey to begin scanning.')
@@ -549,7 +549,8 @@ def main_thread(events: dict):
             print_err(spinner, 'EXTRACTION ERROR', e)
 
         except Exception as e:
-            print_err(spinner, 'ERROR', 'Unknown error has occurred. Please try again. Error details have been logged')
+            print_err(spinner, 'ERROR', 'Unknown error has occurred. Please try again. Error has been logged.')
+            print_err(spinner, "Here's the error output:", e)
             logging.exception(e)
 
         else:  # No exceptions, which means that validation passed or was interrupted
@@ -574,7 +575,7 @@ def main_thread(events: dict):
 
         t = threadpool_parse_validate(prev_top_cells, events)
 
-        print(term.home + term.clear_eos)
+        print(term.home + term.clear)
         spinner.text_color = 'cyan'
         spinner.start('Validating form...')
 
