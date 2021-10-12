@@ -3,10 +3,11 @@ import shutil
 import tempfile
 import threading
 import os
+import logging
 
+import blessed
 import numpy as np
 import pytesseract
-from colorama import Fore
 from pynput import keyboard, mouse
 from halo import Halo
 
@@ -481,11 +482,35 @@ def print_descriptions(descriptions: list):
         print(d)
 
 
+def print_err(spinner, header, err_str):
+    """Simple function to fail a spinner with a header and an error string.
+    Output will look like this, with "-" being the spinner's fail symbol:
+        - *header*
+        - *err_str*
+    """
+    spinner.text_color = MONTH_STATUS_COLORS['fail']
+    spinner.fail(header)
+    spinner.fail(str(err_str))
+
+
+def stop_and_persist_blank(spinner):
+    """Utility function to insert and persist a blank line into a Halo spinner"""
+    spinner.stop_and_persist('', '')
+
+
 def main_thread(events: dict):
     stop = events['stop']
     go = events['go']
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
     prev_top_cells = []
+
+    logging.basicConfig(filename='log.log', level=logging.DEBUG)
+
+    term = blessed.Terminal()
+    print(term.home + term.clear_eos)
+    spinner = Halo(text_color='cyan')
+    spinner.start()
+    spinner.info('Please press the hotkey to begin scanning.')
 
     while True:
         try:
@@ -493,29 +518,32 @@ def main_thread(events: dict):
             res = t.result()
 
         except exceptions.ValidationError as e:
-            print(f'{Fore.RED}VALIDATION ERROR:')
-            print(f'{Fore.RED}{e}')
-            print()
             prev_top_cells = e.top_form
+            print_err(spinner, 'VALIDATION ERROR', e)
 
         except exceptions.ScrollError as e:
-            print(e)
+            prev_top_cells = e.top_form
+            print_err(spinner, 'SCROLL ERROR', e)
+
+        except exceptions.ExtractionError as e:
+            print_err(spinner, 'EXTRACTION ERROR', e)
 
         except Exception as e:
-            print(f'error occurred\n{e}')
+            print_err(spinner, 'ERROR', 'Unknown error has occurred. Please try again. Error details have been logged')
+            logging.exception(e)
 
         else:  # No exceptions, which means that validation passed or was interrupted
             if type(res) is tuple:
                 prev_top_cells, top_table, bot_table = res
 
-                print(f'{Fore.GREEN}VALIDATORS PASSED!')
-                print(f'{Fore.GREEN}Just check descriptions to make sure they line up.')
+                spinner.text_color = MONTH_STATUS_COLORS['succeed']
+                spinner.succeed('VALIDATORS PASSED')
+                spinner.succeed(
+                    f'Final balance: {calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
 
-                # TODO: make this always return two decimal points
-                print(f'{Fore.GREEN}This is the expected final balance: '
-                      f'{calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
-                print(f'{Fore.GREEN}If you make any changes, just press the hotkey to begin scanning again.\n')
-                print_descriptions(bot_table.get_descriptions())
+                # stop_and_persist_blank(spinner)
+                # spinner.text_color = 'cyan'
+                # spinner.info('Please check months to make sure they are spelled correctly:')
             elif res is not None:
                 prev_top_cells = res
 
@@ -523,8 +551,11 @@ def main_thread(events: dict):
         go.clear()
         stop.clear()
 
-        print('Parsing and validating forms...')
         t = threadpool_parse_validate(prev_top_cells, events)
+
+        print(term.home + term.clear_eos)
+        spinner.text_color = 'cyan'
+        spinner.start('Validating form...')
 
 
 class DelayedEvent:
@@ -562,9 +593,6 @@ def main():
 
     main_t = threading.Thread(target=main_thread, args=(events,), daemon=True)
     main_t.start()
-
-    print('Waiting for hotkey...')
-    print('Make sure there is a blank cell selected when you press the hotkey.')
 
     # TODO: add a cancel hotkey that, when pushed, runs val_failed.clear()
 
