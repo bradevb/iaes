@@ -4,6 +4,7 @@ import tempfile
 import threading
 import os
 import logging
+from collections import defaultdict
 
 import blessed
 import numpy as np
@@ -476,10 +477,29 @@ def threadpool_parse_validate(*args, **kwargs):
     return res
 
 
-def print_descriptions(descriptions: list):
+def print_descriptions(spinner, descriptions: list):
+    """Helper function to print out whether or not each description is in acceptable or not. Keyers still need to
+    check descriptions to make sure they're formatted correctly (abbreviated, with/without 'es', etc.), but printing
+    them can help to determine if a description has a typo or not."""
+
+    result = defaultdict(list)
     desc = set(descriptions)
+
+    # Determine what category descriptions are in (succeed, warn, or fail)
     for d in desc:
-        print(d)
+        for success_type, strings in MONTH_STATUSES.items():
+            if d in strings:
+                result[success_type].append(d)
+                break
+
+        else:  # no break
+            result['fail'].append(d)
+
+    # Print each success type (succeed, warn, or fail)
+    for success_type, color in MONTH_STATUS_COLORS.items():
+        spinner.text_color = color
+        for d in result[success_type]:
+            getattr(spinner, success_type)(d)
 
 
 def print_err(spinner, header, err_str):
@@ -541,9 +561,10 @@ def main_thread(events: dict):
                 spinner.succeed(
                     f'Final balance: {calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
 
-                # stop_and_persist_blank(spinner)
-                # spinner.text_color = 'cyan'
-                # spinner.info('Please check months to make sure they are spelled correctly:')
+                stop_and_persist_blank(spinner)
+                spinner.text_color = 'yellow'
+                spinner.warn('Please check months to make sure they are spelled correctly:')
+                print_descriptions(spinner, bot_table.get_descriptions())
             elif res is not None:
                 prev_top_cells = res
 
