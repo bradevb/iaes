@@ -54,9 +54,7 @@ MONTH_STATUSES = {
         'HAZARD INSURANCE',
         'HAZ INS',
         'PROPERTY TAXES',
-        'PROP TAXES'
-    ],
-    'warn': [
+        'PROP TAXES',
         'COUNTY PROPERTY TAX',
         'COUNTY PROPERTY TAXES',
     ],
@@ -77,7 +75,7 @@ TEXT_COLOR_HIGH = (179, 255, 182)
 ORANGE_LOW = (12, 190, 206)
 ORANGE_HIGH = (179, 255, 255)
 ORANGE_REFINED_LOW = (12, 209, 246)
-ORANGE_REFINED_HIGH = (20, 240, 255)
+ORANGE_REFINED_HIGH = (20, 255, 255)
 RED_LOW = (4, 165, 255)
 RED_HIGH = (11, 244, 255)
 QUESTION_MARK_LOW = (111, 151, 178)
@@ -615,8 +613,6 @@ def main():
 
     main_t = threading.Thread(target=main_thread, args=(events,), daemon=True)
     main_t.start()
-
-    # TODO: add a cancel hotkey that, when pushed, runs val_failed.clear()
 
     def on_hotkey():
         val_failed.clear()
