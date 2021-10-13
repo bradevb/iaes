@@ -18,6 +18,8 @@ import cspace
 import processors
 import cv2 as cv
 from screenshot import screencapture, get_window_id
+
+import const
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
 from threadpool import threadpool
@@ -30,58 +32,6 @@ IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVER
 IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
 DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
 DEV = ENV == 'DEV'
-
-# These are both temporary for testing. In prod, load them in from config
-APP_NAME = 'Microsoft Remote Desktop'
-WINDOW_NAME = 'DRPR-RDS-CAP2'
-
-TOP_COL_NAMES = ['proj_start_date',
-                 'beginning_bal',
-                 'proj_min_date',
-                 'proj_min_bal',
-                 'total_amount',
-                 'pi_amount',
-                 'escrow_amount']
-BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
-
-# These are commonly seen descriptions. Each forms' descriptions are checked against these in the main program. The
-# dictionary keys correspond to Halo's statuses. That way, when looping through the keys, one can easily just call
-# spinner[key](description).
-MONTH_STATUSES = {
-    'succeed': [
-        'MORTGAGE INSURANCE',
-        'MTG INS',
-        'HAZARD INSURANCE',
-        'HAZ INS',
-        'PROPERTY TAXES',
-        'PROP TAXES',
-        'COUNTY PROPERTY TAX',
-        'COUNTY PROPERTY TAXES',
-    ],
-}
-
-MONTH_STATUS_COLORS = {
-    'fail': 'red',
-    'warn': 'yellow',
-    'succeed': 'green',
-}
-
-# For converting screenshots to the right color space
-CSPACE_PATH = './icc/IAES_COLOR_PROFILE.icc'
-
-# HSV values used to replace/detect colors throughout the application
-TEXT_COLOR_LOW = (0, 0, 0)
-TEXT_COLOR_HIGH = (179, 255, 182)
-ORANGE_LOW = (12, 190, 206)
-ORANGE_HIGH = (179, 255, 255)
-ORANGE_REFINED_LOW = (12, 209, 246)
-ORANGE_REFINED_HIGH = (20, 255, 255)
-RED_LOW = (4, 165, 255)
-RED_HIGH = (11, 244, 255)
-QUESTION_MARK_LOW = (111, 151, 178)
-QUESTION_MARK_HIGH = (179, 172, 222)
-SELECTION_LOW = (97, 158, 195)
-SELECTION_HIGH = (112, 177, 255)
 
 
 class RemoteDesktop:
@@ -152,7 +102,7 @@ def get_captiva_form(img):
         return FormExtractor(form_img, preprocessors)
 
     def good_form_check(form_img):
-        mask = image_utils.get_color_mask(form_img, SELECTION_LOW, SELECTION_HIGH)
+        mask = image_utils.get_color_mask(form_img, const.SELECTION_LOW, const.SELECTION_HIGH)
         if not np.any(mask):
             return
 
@@ -164,7 +114,8 @@ def get_captiva_form(img):
             if w * h > 40:
                 good_contours.append(c)
 
-        return len(good_contours) == 1 or image_utils.check_color(form_img, QUESTION_MARK_LOW, QUESTION_MARK_HIGH)
+        return len(good_contours) == 1 or image_utils.check_color(form_img, const.QUESTION_MARK_LOW,
+                                                                  const.QUESTION_MARK_HIGH)
 
     form_ext = get_form_ext(img)
     for f in form_ext.get_images():
@@ -177,7 +128,7 @@ def get_cells(img) -> list:
         replacement = (255, 255, 255)
 
         preprocessors = [
-            lambda i: image_utils.replace_color(i, ORANGE_LOW, ORANGE_HIGH, replacement),
+            lambda i: image_utils.replace_color(i, const.ORANGE_LOW, const.ORANGE_HIGH, replacement),
             lambda i: processors.draw_over_unwanted_areas(i),
             lambda i: processors.convert_gray(i),
             lambda i: processors.thresh(i, 200, 225, cv.THRESH_BINARY_INV)
@@ -250,7 +201,7 @@ def parse_cell(cell: Cell):
         tesseract. """
         temp_img = cell_img.copy()
 
-        temp_img = ~image_utils.get_color_mask(temp_img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH)
+        temp_img = ~image_utils.get_color_mask(temp_img, const.TEXT_COLOR_LOW, const.TEXT_COLOR_HIGH)
         temp_img = cv.cvtColor(temp_img, cv.COLOR_GRAY2BGR)
         temp_img = cv.resize(temp_img, None, fx=3, fy=3, interpolation=cv.INTER_CUBIC)
         temp_img = cv.GaussianBlur(temp_img, (7, 7), 0)
@@ -261,7 +212,7 @@ def parse_cell(cell: Cell):
     img = remove_cursor(img)
 
     # NOTE: maybe make this check for number of nonzero instead of just if there are any
-    if not image_utils.check_color(img, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
+    if not image_utils.check_color(img, const.TEXT_COLOR_LOW, const.TEXT_COLOR_HIGH):
         return cell
 
     if img.shape[0] < 54:
@@ -356,7 +307,7 @@ def check_cell_groups(cells, prev_top_cells):
         otherwise return False"""
         num_of_cells = rows * 5
         for c in bot_cells[-num_of_cells:]:
-            if image_utils.check_color(c.image, TEXT_COLOR_LOW, TEXT_COLOR_HIGH):
+            if image_utils.check_color(c.image, const.TEXT_COLOR_LOW, const.TEXT_COLOR_HIGH):
                 return True
         return False
 
@@ -409,9 +360,9 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     if DEV:
         if not dev_image_path:
             raise RuntimeError('Image path must be passed in order to run in DEV!')
-        image = _dev_cap_rem(dev_image_path, CSPACE_PATH)
+        image = _dev_cap_rem(dev_image_path, const.CSPACE_PATH)
     else:
-        rdp = RemoteDesktop(APP_NAME, WINDOW_NAME, CSPACE_PATH)
+        rdp = RemoteDesktop(const.APP_NAME, const.WINDOW_NAME, const.CSPACE_PATH)
         image = rdp.screenshot_remote()
 
     if stop.is_set():
@@ -425,12 +376,12 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
                                          "window containing the IAES document.")
 
     # Check for image snippet red box. If it's there, it could be blocking cells, so raise an error.
-    if image_utils.check_color(captiva_form, RED_LOW, RED_HIGH):
+    if image_utils.check_color(captiva_form, const.RED_LOW, const.RED_HIGH):
         val_failed.clear()
         raise exceptions.ExtractionError('Image snippet detected. Please select a blank cell and rescan.\nIt is '
                                          'recommended that you turn off image snippets by going to View -> Image '
                                          'Snippets.')
-    elif image_utils.check_color(captiva_form, ORANGE_REFINED_LOW, ORANGE_REFINED_HIGH):
+    elif image_utils.check_color(captiva_form, const.ORANGE_REFINED_LOW, const.ORANGE_REFINED_HIGH):
         val_failed.clear()
         raise exceptions.ExtractionError('A cell highlighted in orange has been found. Please fix that cell and '
                                          'rescan.')
@@ -450,8 +401,8 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
         raise e
 
     try:
-        top_table = TopForm(build_table(top_form, TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
-        bot_table = BottomForm(build_table(bot_form, BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
+        top_table = TopForm(build_table(top_form, const.TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
+        bot_table = BottomForm(build_table(bot_form, const.BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
     except StopThread:
         return
 
@@ -485,7 +436,7 @@ def print_descriptions(spinner, descriptions: list):
 
     # Determine what category descriptions are in (succeed, warn, or fail)
     for d in desc:
-        for success_type, strings in MONTH_STATUSES.items():
+        for success_type, strings in const.MONTH_STATUSES.items():
             if d in strings:
                 result[success_type].append(d)
                 break
@@ -494,7 +445,7 @@ def print_descriptions(spinner, descriptions: list):
             result['fail'].append(d)
 
     # Print each success type (succeed, warn, or fail)
-    for success_type, color in MONTH_STATUS_COLORS.items():
+    for success_type, color in const.MONTH_STATUS_COLORS.items():
         spinner.text_color = color
         for d in result[success_type]:
             getattr(spinner, success_type)(d)
@@ -506,7 +457,7 @@ def print_err(spinner, header, err_str):
         - *header*
         - *err_str*
     """
-    spinner.text_color = MONTH_STATUS_COLORS['fail']
+    spinner.text_color = const.MONTH_STATUS_COLORS['fail']
     spinner.fail(header)
     spinner.fail(str(err_str))
 
@@ -555,7 +506,7 @@ def main_thread(events: dict):
             if type(res) is tuple:
                 prev_top_cells, top_table, bot_table = res
 
-                spinner.text_color = MONTH_STATUS_COLORS['succeed']
+                spinner.text_color = const.MONTH_STATUS_COLORS['succeed']
                 spinner.succeed('VALIDATORS PASSED')
                 spinner.succeed(
                     f'Final balance: {calc_balance(bot_table.df, top_table.df["beginning_bal"]).balance.iloc[-1]}')
