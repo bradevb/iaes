@@ -34,7 +34,7 @@ MONTH_STATUS_COLORS = {
 }
 
 # For converting screenshots to the right color space
-CSPACE_PATH = 'icc/IAES_COLOR_PROFILE.icc'
+CSPACE_PATH = 'cli/icc/IAES_COLOR_PROFILE.icc'
 
 # HSV values used to replace/detect colors throughout the application
 TEXT_COLOR_LOW = (0, 0, 0)
