@@ -1,28 +1,27 @@
 import concurrent.futures
+import logging
+import os
 import shutil
 import tempfile
 import threading
-import os
-import logging
 from collections import defaultdict
 
 import blessed
+import cv2 as cv
 import numpy as np
 import pytesseract
-from pynput import keyboard, mouse
 from halo import Halo
+from pynput import keyboard, mouse
+from screenshot import screencapture, get_window_id
 
 import exceptions
 import image_utils
-import cv2 as cv
-from screenshot import screencapture, get_window_id
-
 from cli import const, processors, cspace
+from cli.threadpool import threadpool
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
-from cli.threadpool import threadpool
-from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
+from validators.months.month_helpers import calc_balance
 
 ENV = os.getenv('ENV')
 IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')

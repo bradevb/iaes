@@ -15,8 +15,8 @@ and if a better method for validating is found.
 """
 
 from validators.dates import DATE_VALIDATORS
-from validators.payments import PAYMENT_VALIDATORS
 from validators.months import MONTH_VALIDATORS
+from validators.payments import PAYMENT_VALIDATORS
 from validators.top import TOP_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
 bottom_form_v_list = [
