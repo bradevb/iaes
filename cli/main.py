@@ -14,15 +14,13 @@ from halo import Halo
 
 import exceptions
 import image_utils
-import cspace
-import processors
 import cv2 as cv
 from screenshot import screencapture, get_window_id
 
-import const
+from cli import const, processors, cspace
 from extractor import FormExtractor, CellExtractor
 from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
-from threadpool import threadpool
+from cli.threadpool import threadpool
 from validators.months.month_helpers import calc_balance
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 
@@ -551,7 +549,7 @@ def main():
     events = {'stop': stop, 'go': go, 'scroll': scroll, 'val_failed': val_failed}
 
     if DEV and not DEV_HOTKEYS:
-        base_path = './tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
+        base_path = '../tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
 
         if IMG_OVERRIDE is not None:
             for image_num in IMG_OVERRIDE:
