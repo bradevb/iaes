@@ -102,6 +102,13 @@ def _dev_cap_rem(img_path, cspace_path):
 
 
 def get_captiva_form(img):
+    """
+    Wrapper for Captiva form extraction. Gets a FormExtractor class, then loops through all found forms and checks
+    them to see if they're valid Captiva forms.
+    :param img: Image of entire remote desktop screenshot
+    :return: Captiva form image if one is found, otherwise, None
+    """
+
     def get_form_ext(form_img):
         preprocessors = [
             lambda i: processors.convert_gray(i),
@@ -134,6 +141,13 @@ def get_captiva_form(img):
 
 
 def get_cells(img) -> list:
+    """
+    Wrapper for Captiva cell extraction. Gets CellExtractor class, removes unneeded colors and areas with
+    preprocessors, groups the cells from left to right -> top to bottom.
+    :param img: Image of an extracted Captiva form
+    :return: A list of cell groups
+    """
+
     def get_cell_ext(form_img):
         replacement = (255, 255, 255)
 
@@ -177,6 +191,14 @@ def chunks(lst, n):
 
 
 def parse_cell(cell: Cell):
+    """
+    Parses a Cell's image. Before parsing, it finds and remove cursors or the selected cell's blue color (if either
+    are present). Then the image is passed to tesseract for parsing. The Cell's text attribute is then changed to the
+    result from tesseract.
+    :param cell: A Cell instance
+    :return: The same Cell instance that was passed in, but with its text attribute modified
+    """
+
     def remove_cursor(cell_img):
         """Finds and removes cursors from any cell by finding lines that are long enough to be the cursor,
         and writing over them."""
@@ -238,10 +260,11 @@ def parse_cell(cell: Cell):
 
 
 class StopThread(Exception):
-    """Raised when cell parsing threads should stop"""
+    """Raised when cell parsing threads should stop."""
 
 
 def cancel_futures(futures):
+    """Loops through a list of futures and cancels them all."""
     for f in futures:
         f.cancel()
 
@@ -378,6 +401,8 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     val_failed = events['val_failed']
     scroll = events['scroll']
 
+    # First, take screenshot of remote desktop
+
     if DEV and not DEV_HOTKEYS:
         if not dev_image_path:
             raise RuntimeError('Image path must be passed in order to run in DEV!')
@@ -388,6 +413,8 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
 
     if stop.is_set():
         return
+
+    # Then extract Captiva form and check it for image snippets or orange-colored cells
 
     captiva_form = get_captiva_form(image)
     if captiva_form is None:
@@ -412,6 +439,7 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
 
     # Verify that top and bottom cells are being detected correctly, and check if the user needs to scroll up to get
     # the top form in view
+
     try:
         top_form, bot_form = check_cell_groups(cells, prev_top_cells)
     except exceptions.ExtractionError as e:
@@ -421,6 +449,8 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
         scroll.set()
         raise e
 
+    # Now build the tables
+
     try:
         top_table = TopForm(build_table(top_form, const.TOP_COL_NAMES, stop), validators=TOP_VALIDATORS)
         bot_table = BottomForm(build_table(bot_form, const.BOT_COL_NAMES, stop), validators=BOTTOM_VALIDATORS)
@@ -428,6 +458,8 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
         return
 
     top_bot_table = TopBottomForm(top_table, bot_table, validators=TOP_BOTTOM_VALIDATORS)
+
+    # Validate the tables and raise ValidationError if validation failed
 
     try:
         top_bot_table.validate()
@@ -443,6 +475,7 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
 
 @threadpool
 def threadpool_parse_validate(*args, **kwargs):
+    """A threadpool wrapper around parse_and_validate."""
     res = parse_and_validate(*args, **kwargs)
     return res
 
@@ -492,6 +525,8 @@ def stop_and_persist_blank(spinner):
 
 
 def main_thread(events: dict):
+    """Main thread. Infinitely loops and waits for the go event to be triggered, and then begins parsing. Also prints
+    all output with Halo. """
     stop = events['stop']
     go = events['go']
     t = concurrent.futures.ThreadPoolExecutor().submit(lambda: None)
@@ -568,7 +603,15 @@ DEV = ENV == 'DEV'
 
 
 class DelayedEvent:
+    """An event-like class that runs a function after a certain amount of time as long as it's not triggered again
+    within a certain timeframe. It can also be thought of as a sort of 'rolling event'."""
+
     def __init__(self, wait, event_func):
+        """
+        Initializes the DelayedEvent.
+        :param wait: The amount of time to wait before running event_func (in seconds)
+        :param event_func: The function to run if the DelayedEvent isn't triggered again while waiting.
+        """
         self._timer = threading.Timer(0, lambda: None)
         self._event_func = event_func
         self.wait = wait
@@ -580,6 +623,8 @@ class DelayedEvent:
 
 
 def main():
+    """Main function. Runs development modes if DEV environment variable is present. Also handles the keyboard and
+    scroll listeners, and triggers the stop and go events."""
     prev_top_cells = []
 
     stop = threading.Event()
