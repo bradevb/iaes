@@ -31,13 +31,26 @@ DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
 DEV = ENV == 'DEV'
 
 
-class RemoteDesktop:
-    def __init__(self, app_name, window_name, cspace_path=None):
-        self.window_name = window_name
+class AppScreenCap:
+    def __init__(self, app_name, window_name, max_windows, cspace_path=None):
+        """
+        Screenshot a remote desktop application (or any other application). Can limit the acceptable amount of
+        windows that are on screen, and can also convert screenshots to a different color space by passing in a path
+        to an icc file.
+        :param app_name: The name of the application you want to screenshot.
+        :param window_name: Window name of the application you want to screenshot. Pass in '' and AppScreenCap tries
+        to screenshot the main application window.
+        :param max_windows: The maximum number of windows that an application can have on screen. Pass in a negative
+        value and there is no limit. If there are more than this number of windows on screen, RuntimeError is raised.
+        :param cspace_path: Path to an icc file if you want to convert color spaces.
+        """
+
         self.app_name = app_name
+        self.window_name = window_name
+        self.max_windows = max_windows
         self.cspace_path = cspace_path
-        self.has_run = False
-        self.win_id = None
+        self._has_run = False
+        self._win_id = None
         self._windows = None
 
     def screenshot_remote(self):
@@ -48,7 +61,8 @@ class RemoteDesktop:
                                             window_selection_options='on_screen_only')
 
             # Set screenshot's colorspace
-            cspace.set_cspace(temp_image.name, self.cspace_path)
+            if self.cspace_path:
+                cspace.set_cspace(temp_image.name, self.cspace_path)
 
             return image_utils.load_image(temp_image.name)
 
@@ -58,10 +72,10 @@ class RemoteDesktop:
 
         if not self._validate_win_list():
             self._select_window()
-        elif self.has_run and self._windows[0] != self.win_id:
+        elif self._has_run and self._windows[0] != self._win_id:
             self._select_window()
 
-        self.has_run = True
+        self._has_run = True
 
     def _select_window(self):
         if not self._validate_win_list():
@@ -69,7 +83,7 @@ class RemoteDesktop:
                                'Please ensure the Remote Desktop window is pulled up and visible.')
 
     def _validate_win_list(self):
-        if len(self._windows) > 1 or not self._windows:
+        if (0 < self.max_windows < len(self._windows)) or not self._windows:
             return False
         return True
 
@@ -354,12 +368,12 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
     val_failed = events['val_failed']
     scroll = events['scroll']
 
-    if DEV:
+    if DEV and not DEV_HOTKEYS:
         if not dev_image_path:
             raise RuntimeError('Image path must be passed in order to run in DEV!')
         image = _dev_cap_rem(dev_image_path, const.CSPACE_PATH)
     else:
-        rdp = RemoteDesktop(const.APP_NAME, const.WINDOW_NAME, const.CSPACE_PATH)
+        rdp = AppScreenCap(const.APP_NAME, const.WINDOW_NAME, const.MAX_WINDOWS, const.CSPACE_PATH)
         image = rdp.screenshot_remote()
 
     if stop.is_set():
@@ -547,17 +561,22 @@ def main():
     val_failed = threading.Event()
     events = {'stop': stop, 'go': go, 'scroll': scroll, 'val_failed': val_failed}
 
-    if DEV and not DEV_HOTKEYS:
-        base_path = '../tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
+    if DEV:
+        if not DEV_HOTKEYS:
+            base_path = '../tests/images' if IMG_PATH_OVERRIDE is None else IMG_PATH_OVERRIDE
 
-        if IMG_OVERRIDE is not None:
-            for image_num in IMG_OVERRIDE:
+            if IMG_OVERRIDE is not None:
+                for image_num in IMG_OVERRIDE:
+                    parse_and_validate(prev_top_cells, events, f'{base_path}/{image_num}')
+                return
+
+            for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
                 parse_and_validate(prev_top_cells, events, f'{base_path}/{image_num}')
             return
-
-        for image_num in [f for f in os.listdir(base_path) if f.endswith('.png')]:
-            parse_and_validate(prev_top_cells, events, f'{base_path}/{image_num}')
-        return
+        else:
+            const.APP_NAME = 'Preview'
+            const.WINDOW_NAME = ''
+            const.MAX_WINDOWS = -1
 
     main_t = threading.Thread(target=main_thread, args=(events,), daemon=True)
     main_t.start()

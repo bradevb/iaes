@@ -1,6 +1,7 @@
 # App and window names to use when getting screenshot from remote desktop
 APP_NAME = 'Microsoft Remote Desktop'
 WINDOW_NAME = 'DRPR-RDS-CAP2'
+MAX_WINDOWS = 1
 
 # Column names used when building the tables in main program
 TOP_COL_NAMES = ['proj_start_date',
@@ -11,7 +12,6 @@ TOP_COL_NAMES = ['proj_start_date',
                  'pi_amount',
                  'escrow_amount']
 BOT_COL_NAMES = ['to_date', 'to_amount', 'description', 'from_date', 'from_amount']
-
 # These are commonly seen descriptions. Each forms' descriptions are checked against these in the main program. The
 # dictionary keys correspond to Halo's statuses. That way, when looping through the keys, one can easily just call
 # spinner[key](description).
