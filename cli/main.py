@@ -23,12 +23,8 @@ from form.iaes_forms import TopForm, BottomForm, TopBottomForm, Cell
 from validators import TOP_VALIDATORS, BOTTOM_VALIDATORS, TOP_BOTTOM_VALIDATORS
 from validators.months.month_helpers import calc_balance
 
-ENV = os.getenv('ENV')
-IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')
-IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVERRIDE
-IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
-DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
-DEV = ENV == 'DEV'
+
+# *** Screenshotting utilities ***
 
 
 class AppScreenCap:
@@ -102,6 +98,9 @@ def _dev_cap_rem(img_path, cspace_path):
         return image_utils.load_image(temp_image.name)
 
 
+# *** Form and cell extraction wrappers ***
+
+
 def get_captiva_form(img):
     def get_form_ext(form_img):
         preprocessors = [
@@ -166,6 +165,9 @@ def get_cells(img) -> list:
     groups[bot_form_idx] = bot_form
 
     return groups
+
+
+# *** Functions for building the table cells
 
 
 def chunks(lst, n):
@@ -236,7 +238,7 @@ def parse_cell(cell: Cell):
 
 
 class StopThread(Exception):
-    pass
+    """Raised when cell parsing threads should stop"""
 
 
 def cancel_futures(futures):
@@ -285,15 +287,7 @@ def build_table(cell_instances, col_names, stop: threading.Event):
     return table if len(table) > 1 else table[0]
 
 
-def trim_cell_borders(cell_groups, threshold):
-    """Trims off the gray outline on cells"""
-    for group in cell_groups:
-        for cell in group:
-            img = cell.image.copy()
-            thresh = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-            thresh = cv.threshold(thresh, threshold, 255, cv.THRESH_BINARY)[1]
-            _, img = image_utils.trim_recursive(thresh, img)
-            cell.image = img
+# *** Functions for cell caching checks ***
 
 
 def pad_beginning(ls, ele, amount):
@@ -363,7 +357,23 @@ def check_cell_groups(cells, prev_top_cells):
     return top_form, bot_form
 
 
+# *** Functions for parsing and validating form ***
+
+
+def trim_cell_borders(cell_groups, threshold):
+    """Trims off the gray outline on cells"""
+    for group in cell_groups:
+        for cell in group:
+            img = cell.image.copy()
+            thresh = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            thresh = cv.threshold(thresh, threshold, 255, cv.THRESH_BINARY)[1]
+            _, img = image_utils.trim_recursive(thresh, img)
+            cell.image = img
+
+
 def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
+    """Takes screenshot of remote desktop, extracts forms and cells, and then validates. Basically, this is just a
+    wrapper for all of the main operations of form validation."""
     stop = events['stop']
     val_failed = events['val_failed']
     scroll = events['scroll']
@@ -435,6 +445,9 @@ def parse_and_validate(prev_top_cells: list, events: dict, dev_image_path=None):
 def threadpool_parse_validate(*args, **kwargs):
     res = parse_and_validate(*args, **kwargs)
     return res
+
+
+# *** CLI functions and helpers ***
 
 
 def print_descriptions(spinner, descriptions: list):
@@ -538,6 +551,20 @@ def main_thread(events: dict):
         print(term.home + term.clear)
         spinner.text_color = 'cyan'
         spinner.start('Validating form...')
+
+
+# *** Global environment vars ***
+
+
+ENV = os.getenv('ENV')
+IMG_OVERRIDE = os.getenv('IMG_OVERRIDE')
+IMG_OVERRIDE = IMG_OVERRIDE.split(',') if IMG_OVERRIDE is not None else IMG_OVERRIDE
+IMG_PATH_OVERRIDE = os.getenv('IMG_PATH_OVERRIDE')
+DEV_HOTKEYS = os.getenv('DEV_HOTKEYS')
+DEV = ENV == 'DEV'
+
+
+# *** Main function and its main dependencies ***
 
 
 class DelayedEvent:
